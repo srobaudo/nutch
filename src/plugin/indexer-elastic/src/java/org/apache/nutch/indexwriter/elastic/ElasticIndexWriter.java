@@ -44,26 +44,24 @@ import org.apache.nutch.indexer.IndexWriterParams;
 import org.apache.nutch.indexer.NutchDocument;
 import org.apache.nutch.indexer.NutchField;
 import org.apache.nutch.util.StringUtil;
-import org.elasticsearch.action.bulk.BulkResponse;
-import org.elasticsearch.action.DocWriteRequest;
-import org.elasticsearch.action.bulk.BackoffPolicy;
-import org.elasticsearch.action.bulk.BulkProcessor;
-import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.delete.DeleteRequest;
-import org.elasticsearch.action.index.IndexRequest;
+
+import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
+import co.elastic.clients.elasticsearch.core.bulk.IndexOperation;
+import co.elastic.clients.elasticsearch.core.bulk.DeleteOperation;
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
+import co.elastic.clients.json.jackson.JacksonJsonpMapper;
+import co.elastic.clients.transport.ElasticsearchTransport;
+import co.elastic.clients.transport.rest_client.RestClientTransport;
+
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.common.unit.ByteSizeUnit;
-import org.elasticsearch.common.unit.ByteSizeValue;
-import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback;
-import org.elasticsearch.common.xcontent.XContentBuilder;
-import org.elasticsearch.common.xcontent.XContentFactory;
-import org.elasticsearch.client.RequestOptions;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
 
 /**
  * Sends NutchDocuments to a configured Elasticsearch index.
@@ -94,8 +92,8 @@ public class ElasticIndexWriter implements IndexWriter {
   private int expBackoffRetries;
 
   private String defaultIndex;
-  private RestHighLevelClient client;
-  private BulkProcessor bulkProcessor;
+  private ElasticsearchClient client;
+  private List<BulkOperation> bulkOperations;
 
   private long bulkCloseTimeout;
 
@@ -142,30 +140,20 @@ public class ElasticIndexWriter implements IndexWriter {
         DEFAULT_EXP_BACKOFF_RETRIES);
 
     client = makeClient(parameters);
+    bulkOperations = new ArrayList<>();
 
-    LOG.debug("Creating BulkProcessor with maxBulkDocs={}, maxBulkLength={}",
+    LOG.debug("Creating Elasticsearch client with maxBulkDocs={}, maxBulkLength={}",
         maxBulkDocs, maxBulkLength);
-    bulkProcessor = BulkProcessor
-        .builder(
-            (request, bulkListener) -> client.bulkAsync(request,
-                RequestOptions.DEFAULT, bulkListener),
-            bulkProcessorListener())
-        .setBulkActions(maxBulkDocs)
-        .setBulkSize(new ByteSizeValue(maxBulkLength, ByteSizeUnit.BYTES))
-        .setConcurrentRequests(1)
-        .setBackoffPolicy(BackoffPolicy.exponentialBackoff(
-            TimeValue.timeValueMillis(expBackoffMillis), expBackoffRetries))
-        .build();
   }
 
   /**
-   * Generates a RestHighLevelClient with the hosts given
+   * Generates an ElasticsearchClient with the hosts given
    * @param parameters implementation specific {@link org.apache.nutch.indexer.IndexWriterParams}
-   * @return an initialized {@link org.elasticsearch.client.RestHighLevelClient}
+   * @return an initialized {@link co.elastic.clients.elasticsearch.ElasticsearchClient}
    * @throws IOException if there is an error reading the 
    * {@link org.apache.nutch.indexer.IndexWriterParams}
    */
-  protected RestHighLevelClient makeClient(IndexWriterParams parameters)
+  protected ElasticsearchClient makeClient(IndexWriterParams parameters)
       throws IOException {
     hosts = parameters.getStrings(ElasticConstants.HOSTS);
     port = parameters.getInt(ElasticConstants.PORT, DEFAULT_PORT);
@@ -178,7 +166,7 @@ public class ElasticIndexWriter implements IndexWriter {
     credentialsProvider.setCredentials(AuthScope.ANY,
         new UsernamePasswordCredentials(user, password));
 
-    RestHighLevelClient client = null;
+    ElasticsearchClient client = null;
 
     if (hosts != null && port > 1) {
       HttpHost[] hostsList = new HttpHost[hosts.length];
@@ -223,7 +211,9 @@ public class ElasticIndexWriter implements IndexWriter {
         }
       }
 
-      client = new RestHighLevelClient(restClientBuilder);
+      RestClient restClient = restClientBuilder.build();
+      ElasticsearchTransport transport = new RestClientTransport(restClient, new JacksonJsonpMapper());
+      client = new ElasticsearchClient(transport);
     } else {
       throw new IOException(
           "ElasticRestClient initialization Failed!!!\\n\\nPlease Provide the hosts");
@@ -232,32 +222,6 @@ public class ElasticIndexWriter implements IndexWriter {
     return client;
   }
 
-  /**
-   * Generates a default BulkProcessor.Listener
-   * @return {@link BulkProcessor.Listener}
-   */
-  protected BulkProcessor.Listener bulkProcessorListener() {
-    return new BulkProcessor.Listener() {
-      @Override
-      public void beforeBulk(long executionId, BulkRequest request) {
-      }
-
-      @Override
-      public void afterBulk(long executionId, BulkRequest request,
-          Throwable failure) {
-        LOG.error("Elasticsearch indexing failed:", failure);
-      }
-
-      @Override
-      public void afterBulk(long executionId, BulkRequest request,
-          BulkResponse response) {
-        if (response.hasFailures()) {
-          LOG.warn("Failures occurred during bulk request: {}",
-              response.buildFailureMessage());
-        }
-      }
-    };
-  }
 
   @Override
   public void write(NutchDocument doc) throws IOException {
@@ -266,35 +230,50 @@ public class ElasticIndexWriter implements IndexWriter {
     if (type == null)
       type = "doc";
 
-    // Add each field of this doc to the index builder
-    XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
+    // Build the document as a Map
+    Map<String, Object> document = new LinkedHashMap<>();
     for (final Map.Entry<String, NutchField> e : doc) {
       final List<Object> values = e.getValue().getValues();
 
       if (values.size() > 1) {
-        builder.array(e.getKey(), values);
+        document.put(e.getKey(), values);
       } else {
         Object value = values.get(0);
         if (value instanceof java.util.Date) {
           value = DateTimeFormatter.ISO_INSTANT
               .format(((java.util.Date) value).toInstant());
         }
-        builder.field(e.getKey(), value);
+        document.put(e.getKey(), value);
       }
     }
-    builder.endObject();
 
-    IndexRequest request = new IndexRequest(defaultIndex).id(id)
-        .source(builder);
-    request.opType(DocWriteRequest.OpType.INDEX);
+    IndexOperation<Object> indexOp = IndexOperation.of(i -> i
+        .index(defaultIndex)
+        .id(id)
+        .document(document)
+    );
 
-    bulkProcessor.add(request);
+    bulkOperations.add(BulkOperation.of(b -> b.index(indexOp)));
+
+    // Check if we need to flush
+    if (bulkOperations.size() >= maxBulkDocs) {
+      commit();
+    }
   }
 
   @Override
   public void delete(String key) throws IOException {
-    DeleteRequest request = new DeleteRequest(defaultIndex, key);
-    bulkProcessor.add(request);
+    DeleteOperation deleteOp = DeleteOperation.of(d -> d
+        .index(defaultIndex)
+        .id(key)
+    );
+
+    bulkOperations.add(BulkOperation.of(b -> b.delete(deleteOp)));
+
+    // Check if we need to flush
+    if (bulkOperations.size() >= maxBulkDocs) {
+      commit();
+    }
   }
 
   @Override
@@ -304,20 +283,33 @@ public class ElasticIndexWriter implements IndexWriter {
 
   @Override
   public void commit() throws IOException {
-    bulkProcessor.flush();
+    if (!bulkOperations.isEmpty()) {
+      try {
+        client.bulk(b -> b.operations(bulkOperations));
+        bulkOperations.clear();
+      } catch (ElasticsearchException e) {
+        LOG.error("Elasticsearch bulk operation failed:", e);
+        throw new IOException(e);
+      } catch (Exception e) {
+        LOG.error("Unexpected error during bulk operation:", e);
+        throw new IOException(e);
+      }
+    }
   }
 
   @Override
   public void close() throws IOException {
-    // Close BulkProcessor (automatically flushes)
-    try {
-      bulkProcessor.awaitClose(bulkCloseTimeout, TimeUnit.SECONDS);
-    } catch (InterruptedException e) {
-      LOG.warn("interrupted while waiting for BulkProcessor to complete ({})",
-          e.getMessage());
+    // Flush any remaining operations
+    commit();
+    
+    // Close the client and its transport
+    if (client != null) {
+      try {
+        client._transport().close();
+      } catch (Exception e) {
+        LOG.warn("Error closing Elasticsearch client: {}", e.getMessage());
+      }
     }
-
-    client.close();
   }
 
   /**
