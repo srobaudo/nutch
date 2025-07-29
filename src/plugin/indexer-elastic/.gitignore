@@ -1,0 +1,4 @@
+# Generated dependency libraries
+# These are downloaded by ant -f build-ivy.xml and should not be committed
+# since they can be regenerated from ivy.xml
+/lib/
