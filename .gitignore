@@ -34,3 +34,7 @@ lib/native/libhadooputils.*
 lib/native/libhdfs.*
 lib/native/libhdfspp.*
 lib/native/libnativetask.*
+
+# Validation scripts for ES upgrade verification
+validate-es-upgrade.sh
+validate-test-structure.sh
