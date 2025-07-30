@@ -84,6 +84,16 @@ public class TestElasticIndexWriterIntegration {
     currentESVersion = "8";
     currentHost = ES8_HOST;
     currentPort = ES8_PORT;
+    
+    // Clean up any existing test indices before starting
+    try {
+      cleanupTestIndex(ES8_HOST, ES8_PORT);
+      cleanupTestIndex(ES9_HOST, ES9_PORT);
+      // Wait a bit for cleanup to complete
+      Thread.sleep(1000);
+    } catch (Exception e) {
+      LOG.warn("Error during initial cleanup: {}", e.getMessage());
+    }
   }
 
   @After
@@ -110,8 +120,10 @@ public class TestElasticIndexWriterIntegration {
    */
   @Test
   public void testElasticsearch8Integration() throws Exception {
+    LOG.info("=== Starting Elasticsearch 8 integration test ===");
     setupForES8();
     runIntegrationTestSuite();
+    LOG.info("=== Elasticsearch 8 integration test completed successfully ===");
   }
 
   /**
@@ -119,8 +131,10 @@ public class TestElasticIndexWriterIntegration {
    */
   @Test
   public void testElasticsearch9Integration() throws Exception {
+    LOG.info("=== Starting Elasticsearch 9 integration test ===");
     setupForES9();
     runIntegrationTestSuite();
+    LOG.info("=== Elasticsearch 9 integration test completed successfully ===");
   }
 
   /**
@@ -182,8 +196,10 @@ public class TestElasticIndexWriterIntegration {
     currentHost = ES8_HOST;
     currentPort = ES8_PORT;
     
+    LOG.info("Setting up integration test for Elasticsearch 8 at {}:{}", currentHost, currentPort);
     waitForElasticsearch(currentHost, currentPort);
     configureIndexWriter(currentHost, currentPort);
+    LOG.info("Setup completed for ES 8");
   }
 
   private void setupForES9() throws Exception {
@@ -191,8 +207,10 @@ public class TestElasticIndexWriterIntegration {
     currentHost = ES9_HOST;
     currentPort = ES9_PORT;
     
+    LOG.info("Setting up integration test for Elasticsearch 9 at {}:{}", currentHost, currentPort);
     waitForElasticsearch(currentHost, currentPort);
     configureIndexWriter(currentHost, currentPort);
+    LOG.info("Setup completed for ES 9");
   }
 
   private void configureIndexWriter(String host, int port) throws Exception {
@@ -253,28 +271,55 @@ public class TestElasticIndexWriterIntegration {
     indexWriter.write(doc);
     indexWriter.commit();
     
-    // Wait for indexing
-    Thread.sleep(2000);
+    // Wait for indexing with progressive delay
+    Thread.sleep(1000);
     
-    // Verify document was indexed
+    // Create ES client for verification
     ElasticsearchClient client = createESClient(currentHost, currentPort);
-    SearchRequest searchRequest = SearchRequest.of(s -> s
-        .index(TEST_INDEX)
-        .query(q -> q
-            .match(m -> m
-                .field("id")
-                .query("test-doc-" + currentESVersion)
-            )
-        )
-    );
     
-    SearchResponse<Object> response = client.search(searchRequest, Object.class);
-    assertTrue("Document should be found in index", response.hits().total().value() > 0);
+    try {
+      // Try multiple times to account for indexing delay
+      boolean documentFound = false;
+      for (int attempt = 0; attempt < 10; attempt++) {
+        try {
+          SearchRequest searchRequest = SearchRequest.of(s -> s
+              .index(TEST_INDEX)
+              .query(q -> q
+                  .match(m -> m
+                      .field("id")
+                      .query("test-doc-" + currentESVersion)
+                  )
+              )
+          );
+          
+          SearchResponse<Object> response = client.search(searchRequest, Object.class);
+          
+          if (response.hits().total().value() > 0) {
+            Hit<Object> hit = response.hits().hits().get(0);
+            assertNotNull("Hit should not be null", hit);
+            documentFound = true;
+            break;
+          }
+          
+          LOG.debug("Document not found yet, attempt {}/10", attempt + 1);
+          Thread.sleep(1000);
+        } catch (Exception e) {
+          LOG.debug("Search attempt {} failed: {}", attempt + 1, e.getMessage());
+          Thread.sleep(1000);
+        }
+      }
+      
+      assertTrue("Document should be found in index after multiple attempts", documentFound);
+      
+    } finally {
+      // Close the client properly
+      try {
+        client._transport().close();
+      } catch (IOException e) {
+        LOG.warn("Error closing ES client: {}", e.getMessage());
+      }
+    }
     
-    Hit<Object> hit = response.hits().hits().get(0);
-    assertNotNull("Hit should not be null", hit);
-    
-    client._transport().close();
     LOG.info("Document indexing and retrieval test passed for ES {}", currentESVersion);
   }
 
@@ -294,25 +339,52 @@ public class TestElasticIndexWriterIntegration {
     }
     
     indexWriter.commit();
-    Thread.sleep(3000);
     
-    // Verify all documents were indexed
+    // Create ES client for verification
     ElasticsearchClient client = createESClient(currentHost, currentPort);
-    SearchRequest searchRequest = SearchRequest.of(s -> s
-        .index(TEST_INDEX)
-        .query(q -> q
-            .wildcard(w -> w
-                .field("id")
-                .value("bulk-doc-" + currentESVersion + "-*")
-            )
-        )
-        .size(10)
-    );
     
-    SearchResponse<Object> response = client.search(searchRequest, Object.class);
-    assertEquals("Should find 5 bulk documents", 5, response.hits().total().value());
-    
-    client._transport().close();
+    try {
+      // Wait for bulk indexing with retry logic
+      boolean allDocumentsFound = false;
+      for (int attempt = 0; attempt < 15; attempt++) {
+        try {
+          SearchRequest searchRequest = SearchRequest.of(s -> s
+              .index(TEST_INDEX)
+              .query(q -> q
+                  .wildcard(w -> w
+                      .field("id")
+                      .value("bulk-doc-" + currentESVersion + "-*")
+                  )
+              )
+              .size(10)
+          );
+          
+          SearchResponse<Object> response = client.search(searchRequest, Object.class);
+          
+          if (response.hits().total().value() == 5) {
+            allDocumentsFound = true;
+            break;
+          }
+          
+          LOG.debug("Found {}/5 bulk documents, attempt {}/15", 
+                   response.hits().total().value(), attempt + 1);
+          Thread.sleep(1000);
+        } catch (Exception e) {
+          LOG.debug("Bulk search attempt {} failed: {}", attempt + 1, e.getMessage());
+          Thread.sleep(1000);
+        }
+      }
+      
+      assertTrue("Should find all 5 bulk documents after multiple attempts", allDocumentsFound);
+      
+    } finally {
+      // Close the client properly
+      try {
+        client._transport().close();
+      } catch (IOException e) {
+        LOG.warn("Error closing ES client: {}", e.getMessage());
+      }
+    }
     LOG.info("Bulk operations test passed for ES {}", currentESVersion);
   }
 
