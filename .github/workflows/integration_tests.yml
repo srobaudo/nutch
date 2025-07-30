@@ -135,10 +135,13 @@ jobs:
           curl -s http://localhost:9201/_cluster/health | jq '.' || curl -s http://localhost:9201/_cluster/health
           echo ""
           
+          # Set system properties for log4j2 to prevent infinite loop
+          export ANT_OPTS="-Dhadoop.log.dir=/tmp -Dhadoop.log.file=test.log"
+          
           # Run simple connectivity test first
           echo "Running connectivity test..."
-          ant test-connectivity
+          timeout 60s ant test-connectivity || { echo "Connectivity test failed or timed out"; exit 1; }
           
-          # If connectivity test passes, run ES8 integration test
+          # If connectivity test passes, run ES8 integration test only
           echo "Running ES8 integration test..."
-          ant integration-test-es8-only
+          timeout 120s ant integration-test-es8-only || { echo "ES8 integration test failed or timed out"; exit 1; }
