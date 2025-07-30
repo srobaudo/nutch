@@ -142,5 +142,3 @@ jobs:
           # If connectivity test passes, run ES8 integration test
           echo "Running ES8 integration test..."
           ant integration-test-es8-only
-          
-          # Trigger workflow re-run
