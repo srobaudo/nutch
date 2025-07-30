@@ -19,7 +19,6 @@ on:
     branches: [master]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
-    branches: [master]
   workflow_dispatch:
 jobs:
   javadoc:
