@@ -232,6 +232,27 @@
     <fail if="tests.failed">ES8 integration test failed!</fail>
     <echo message="ES8 integration test completed successfully"/>
   </target>
+  
+  <target name="test-connectivity" depends="compile-test, integration-test-pre-check" 
+          description="Run simple connectivity test without Nutch dependencies">
+    <echo message="Running simple connectivity test..."/>
+    <condition property="env.description" value="GitHub Actions services" else="local Docker containers">
+      <istrue value="${use.github.services}"/>
+    </condition>
+    <echo message="Testing environment: ${env.description}"/>
+    
+    <junit showoutput="yes" printsummary="yes" haltonfailure="no" fork="yes" maxmemory="256m"
+           timeout="120000" errorProperty="tests.failed" failureProperty="tests.failed">
+      <sysproperty key="elasticsearch8.port" value="${es8.port}"/>
+      <sysproperty key="elasticsearch9.port" value="${es9.port}"/>
+      <classpath refid="test.classpath"/>
+      <formatter type="${test.junit.output.format}" />
+      <test name="org.apache.nutch.indexwriter.elastic.TestElasticConnectivity" todir="${build.test}"/>
+    </junit>
+
+    <fail if="tests.failed">Connectivity test failed!</fail>
+    <echo message="Connectivity test completed successfully"/>
+  </target>
 
   <target name="test-all" depends="test, integration-test" 
           description="Run both unit tests and integration tests">

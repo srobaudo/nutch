@@ -135,5 +135,10 @@ jobs:
           curl -s http://localhost:9201/_cluster/health | jq '.' || curl -s http://localhost:9201/_cluster/health
           echo ""
           
-          # Run integration tests (ES8 only for debugging)
-          ant clean integration-test-es8-only -buildfile build.xml
+          # Run simple connectivity test first
+          echo "Running connectivity test..."
+          ant clean test-connectivity -buildfile build.xml
+          
+          # If connectivity test passes, run ES8 integration test
+          echo "Running ES8 integration test..."
+          ant integration-test-es8-only -buildfile build.xml
