@@ -76,6 +76,7 @@ public class TestElasticIndexWriterIntegration {
 
   @Before
   public void setUp() throws Exception {
+    LOG.info("Setting up integration test environment...");
     conf = NutchConfiguration.create();
     indexWriter = new ElasticIndexWriter();
     params = new IndexWriterParams(new HashMap<String, String>());
@@ -85,15 +86,7 @@ public class TestElasticIndexWriterIntegration {
     currentHost = ES8_HOST;
     currentPort = ES8_PORT;
     
-    // Clean up any existing test indices before starting
-    try {
-      cleanupTestIndex(ES8_HOST, ES8_PORT);
-      cleanupTestIndex(ES9_HOST, ES9_PORT);
-      // Wait a bit for cleanup to complete
-      Thread.sleep(1000);
-    } catch (Exception e) {
-      LOG.warn("Error during initial cleanup: {}", e.getMessage());
-    }
+    LOG.info("Integration test setup completed - individual tests will handle ES connections");
   }
 
   @After
@@ -197,6 +190,15 @@ public class TestElasticIndexWriterIntegration {
     currentPort = ES8_PORT;
     
     LOG.info("Setting up integration test for Elasticsearch 8 at {}:{}", currentHost, currentPort);
+    
+    // Clean up before testing
+    try {
+      cleanupTestIndex(currentHost, currentPort);
+      Thread.sleep(500);
+    } catch (Exception e) {
+      LOG.warn("Pre-test cleanup failed (may be expected): {}", e.getMessage());
+    }
+    
     waitForElasticsearch(currentHost, currentPort);
     configureIndexWriter(currentHost, currentPort);
     LOG.info("Setup completed for ES 8");
@@ -208,6 +210,15 @@ public class TestElasticIndexWriterIntegration {
     currentPort = ES9_PORT;
     
     LOG.info("Setting up integration test for Elasticsearch 9 at {}:{}", currentHost, currentPort);
+    
+    // Clean up before testing
+    try {
+      cleanupTestIndex(currentHost, currentPort);
+      Thread.sleep(500);
+    } catch (Exception e) {
+      LOG.warn("Pre-test cleanup failed (may be expected): {}", e.getMessage());
+    }
+    
     waitForElasticsearch(currentHost, currentPort);
     configureIndexWriter(currentHost, currentPort);
     LOG.info("Setup completed for ES 9");
@@ -422,14 +433,14 @@ public class TestElasticIndexWriterIntegration {
         .connectTimeout(Duration.ofSeconds(5))
         .build();
     
-    int maxRetries = 30;
+    int maxRetries = 15;  // Reduced from 30
     int retryCount = 0;
     
     while (retryCount < maxRetries) {
       try {
         HttpRequest request = HttpRequest.newBuilder()
             .uri(URI.create("http://" + host + ":" + port + "/_cluster/health"))
-            .timeout(Duration.ofSeconds(5))
+            .timeout(Duration.ofSeconds(3))  // Reduced from 5
             .GET()
             .build();
         
@@ -439,17 +450,18 @@ public class TestElasticIndexWriterIntegration {
           LOG.info("Elasticsearch at {}:{} is ready", host, port);
           return;
         }
+        LOG.info("ES at {}:{} returned status {}, retrying...", host, port, response.statusCode());
       } catch (Exception e) {
-        LOG.debug("Elasticsearch not ready yet, retrying... ({}/{}): {}", 
+        LOG.info("Elasticsearch not ready yet, retrying... ({}/{}): {}", 
                   retryCount + 1, maxRetries, e.getMessage());
       }
       
       retryCount++;
-      Thread.sleep(2000);
+      Thread.sleep(1000);  // Reduced from 2000
     }
     
     throw new RuntimeException("Elasticsearch at " + host + ":" + port + 
-                              " did not become ready within " + (maxRetries * 2) + " seconds");
+                              " did not become ready within " + (maxRetries) + " seconds");
   }
 
   private boolean isElasticsearchReachable(String host, int port) {
@@ -475,19 +487,19 @@ public class TestElasticIndexWriterIntegration {
   private void cleanupTestIndex(String host, int port) throws Exception {
     try {
       HttpClient client = HttpClient.newBuilder()
-          .connectTimeout(Duration.ofSeconds(5))
+          .connectTimeout(Duration.ofSeconds(3))  // Reduced timeout
           .build();
       
       HttpRequest request = HttpRequest.newBuilder()
           .uri(URI.create("http://" + host + ":" + port + "/" + TEST_INDEX))
-          .timeout(Duration.ofSeconds(5))
+          .timeout(Duration.ofSeconds(3))  // Reduced timeout
           .DELETE()
           .build();
       
       HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-      LOG.debug("Cleanup response for {}:{}: {}", host, port, response.statusCode());
+      LOG.info("Cleanup response for {}:{}/{}: {}", host, port, TEST_INDEX, response.statusCode());
     } catch (Exception e) {
-      LOG.debug("Error during cleanup (may be expected): {}", e.getMessage());
+      LOG.info("Error during cleanup (may be expected if index doesn't exist): {}", e.getMessage());
     }
   }
 }
