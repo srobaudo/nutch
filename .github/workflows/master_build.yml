@@ -52,7 +52,7 @@ jobs:
       - name: Run Apache Rat
         run: ant clean run-rat -buildfile build.xml
       - name: Cache unknown licenses
-        run: echo "UNKNOWN_LICENSES=$(sed -n 18p /home/runner/work/nutch/nutch/build/apache-rat-report.txt)" >> $GITHUB_ENV
+        run: echo "UNKNOWN_LICENSES=$(sed -n 18p ./build/apache-rat-report.txt)" >> $GITHUB_ENV
       - name: Versions
         run: |
           echo $UNKNOWN_LICENSES

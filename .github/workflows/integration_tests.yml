@@ -21,7 +21,7 @@ jobs:
   integration-tests:
     strategy:
       matrix:
-        java: ['11']
+        java: ['17']
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     services:
@@ -35,11 +35,11 @@ jobs:
         ports:
           - 9200:9200
         options: >-
-          --health-cmd "curl -f http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=30s"
-          --health-interval 30s
-          --health-timeout 10s
-          --health-retries 5
-          --health-start-period 60s
+          --health-cmd "curl -f http://localhost:9200/_cluster/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+          --health-start-period 30s
       elasticsearch9:
         image: elasticsearch:9.0.4
         env:
@@ -50,11 +50,11 @@ jobs:
         ports:
           - 9201:9200
         options: >-
-          --health-cmd "curl -f http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=30s"
-          --health-interval 30s
-          --health-timeout 10s
-          --health-retries 5
-          --health-start-period 60s
+          --health-cmd "curl -f http://localhost:9200/_cluster/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+          --health-start-period 30s
     steps:
       - uses: actions/checkout@v4.2.2
       - name: Set up JDK ${{ matrix.java }}
