@@ -13,15 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: master pull request ci
+name: pull request ci
 
-on:
-  push:
-    branches: [master]
-  pull_request:
-    types: [opened, synchronize, reopened]
-    branches: [master]
-  workflow_dispatch:
+on: [push]
 jobs:
   javadoc:
     strategy:
