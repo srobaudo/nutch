@@ -109,7 +109,7 @@ public class TestElasticIndexWriter {
    * Create an IndexWriterParams with basic configuration
    */
   private IndexWriterParams createBasicParams() {
-    Map<String, Object> params = new HashMap<>();
+    Map<String, String> params = new HashMap<>();
     params.put(ElasticConstants.HOSTS, "localhost");
     params.put(ElasticConstants.PORT, "9200");
     params.put(ElasticConstants.SCHEME, "http");
@@ -160,7 +160,7 @@ public class TestElasticIndexWriter {
     writer.setConf(conf);
     
     // Create params without host
-    Map<String, Object> params = new HashMap<>();
+    Map<String, String> params = new HashMap<>();
     params.put(ElasticConstants.PORT, "9200");
     IndexWriterParams writerParams = new IndexWriterParams(params);
     
@@ -184,7 +184,7 @@ public class TestElasticIndexWriter {
     Configuration conf = NutchConfiguration.create();
     writer.setConf(conf);
     
-    Map<String, Object> params = new HashMap<>();
+    Map<String, String> params = new HashMap<>();
     params.put(ElasticConstants.HOSTS, "localhost");
     params.put(ElasticConstants.PORT, "9200");
     params.put(ElasticConstants.SCHEME, "https");
@@ -302,7 +302,7 @@ public class TestElasticIndexWriter {
     Configuration conf = NutchConfiguration.create();
     writer.setConf(conf);
     
-    Map<String, Object> params = new HashMap<>();
+    Map<String, String> params = new HashMap<>();
     params.put(ElasticConstants.HOSTS, "localhost");
     params.put(ElasticConstants.PORT, "9200");
     params.put(ElasticConstants.SCHEME, "http");
