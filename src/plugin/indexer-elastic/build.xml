@@ -30,25 +30,36 @@
 
   <!-- Integration test targets -->
   <target name="integration-test-detect-env" description="Detect if running in GitHub Actions or locally">
+    <!-- Import environment variables -->
+    <property environment="env"/>
+    
     <!-- Check if we're running in GitHub Actions -->
     <condition property="github.actions" value="true">
-      <isset property="env.GITHUB_ACTIONS"/>
+      <or>
+        <isset property="env.GITHUB_ACTIONS"/>
+        <equals arg1="${env.GITHUB_ACTIONS}" arg2="true"/>
+      </or>
     </condition>
     
     <!-- Set default ports for local testing -->
     <property name="es8.port" value="9200"/>
     <property name="es9.port" value="9201"/>
     
-    <condition property="use.github.services">
+    <condition property="use.github.services" value="true">
+      <istrue value="${github.actions}"/>
+    </condition>
+    
+    <condition property="skip.docker.compose" value="true">
       <istrue value="${github.actions}"/>
     </condition>
     
     <echo message="GitHub Actions detected: ${github.actions}"/>
     <echo message="Using GitHub Actions services: ${use.github.services}"/>
+    <echo message="Skip Docker Compose: ${skip.docker.compose}"/>
   </target>
 
   <target name="integration-test-start-es" depends="integration-test-detect-env" 
-          unless="use.github.services" description="Start Elasticsearch containers for local integration testing">
+          unless="skip.docker.compose" description="Start Elasticsearch containers for local integration testing">
     <echo message="Starting Elasticsearch containers for local integration testing..."/>
     <exec executable="docker" dir="${basedir}" failonerror="true">
       <arg value="compose"/>
@@ -71,7 +82,7 @@
   </target>
 
   <target name="integration-test-stop-es" depends="integration-test-detect-env" 
-          unless="use.github.services" description="Stop Elasticsearch containers">
+          unless="skip.docker.compose" description="Stop Elasticsearch containers">
     <echo message="Stopping Elasticsearch containers..."/>
     <exec executable="docker" dir="${basedir}" failonerror="false">
       <arg value="compose"/>
@@ -101,7 +112,7 @@
   </target>
 
   <target name="integration-test-check-docker" depends="integration-test-detect-env"
-          unless="use.github.services" description="Check if Docker and Docker Compose are available for local testing">
+          unless="skip.docker.compose" description="Check if Docker and Docker Compose are available for local testing">
     <echo message="Checking Docker availability for local testing..."/>
     <exec executable="docker" outputproperty="docker.version" failonerror="false" resultproperty="docker.result">
       <arg value="--version"/>
@@ -153,7 +164,12 @@
     </junit>
 
     <!-- Always stop containers if running locally, even if tests fail -->
-    <antcall target="integration-test-stop-es"/>
+    <condition property="should.stop.containers">
+      <not><istrue value="${skip.docker.compose}"/></not>
+    </condition>
+    <antcall target="integration-test-stop-es">
+      <param name="skip.docker.compose" value="${skip.docker.compose}"/>
+    </antcall>
 
     <fail if="tests.failed">Integration tests failed!</fail>
     <echo message="Integration tests completed successfully"/>
