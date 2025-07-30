@@ -34,6 +34,8 @@ import java.util.Map;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.nutch.indexer.IndexWriterParams;
 import org.apache.nutch.indexer.NutchDocument;
+import org.apache.nutch.indexwriter.elastic.ElasticConstants;
+import org.apache.nutch.indexwriter.elastic.ElasticIndexWriter;
 import org.apache.nutch.util.NutchConfiguration;
 import org.junit.After;
 import org.junit.Before;
