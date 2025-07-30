@@ -78,26 +78,23 @@ public class TestElasticIndexWriterIntegration {
 
   @Before
   public void setUp() throws Exception {
-    System.out.println("=== Starting integration test setup ===");
-    
-    // Fix log4j2 infinite loop by setting system properties explicitly
-    System.setProperty("hadoop.log.dir", System.getProperty("java.io.tmpdir", "/tmp"));
+    // Fix log4j2 infinite loop by setting system properties early and explicitly
+    // Use different property names to avoid circular reference
+    System.setProperty("hadoop.log.dir", "/tmp/nutch-test");
     System.setProperty("hadoop.log.file", "integration-test.log");
     
-    LOG.info("Setting up integration test environment...");
+    // Ensure log directory exists
+    java.io.File logDir = new java.io.File("/tmp/nutch-test");
+    if (!logDir.exists()) {
+      logDir.mkdirs();
+    }
+    
+    System.out.println("=== Starting integration test setup ===");
     
     try {
-      System.out.println("Creating Nutch configuration...");
       conf = NutchConfiguration.create();
-      System.out.println("Nutch configuration created successfully");
-      
-      System.out.println("Creating ElasticIndexWriter...");
       indexWriter = new ElasticIndexWriter();
-      System.out.println("ElasticIndexWriter created successfully");
-      
-      System.out.println("Creating IndexWriterParams...");
       params = new IndexWriterParams(new HashMap<String, String>());
-      System.out.println("IndexWriterParams created successfully");
       
       // Default to ES8 for setup - individual tests will switch versions
       currentESVersion = "8";
@@ -105,7 +102,6 @@ public class TestElasticIndexWriterIntegration {
       currentPort = ES8_PORT;
       
       System.out.println("=== Integration test setup completed ===");
-      LOG.info("Integration test setup completed - individual tests will handle ES connections");
     } catch (Exception e) {
       System.err.println("ERROR in setUp: " + e.getMessage());
       e.printStackTrace();
@@ -138,25 +134,27 @@ public class TestElasticIndexWriterIntegration {
   @Test
   public void testElasticsearch8Integration() throws Exception {
     System.out.println("=== Starting Elasticsearch 8 integration test ===");
-    LOG.info("=== Starting Elasticsearch 8 integration test ===");
     
     try {
-      System.out.println("Step 1: Setting up ES8 environment...");
-      setupForES8();
-      System.out.println("Step 2: ES8 setup completed, running basic connectivity test...");
+      // Step 1: Basic connectivity check
+      System.out.println("Step 1: Testing basic connectivity to ES8...");
+      if (!isElasticsearchReachable(ES8_HOST, ES8_PORT)) {
+        System.err.println("ERROR: ES8 is not reachable at " + ES8_HOST + ":" + ES8_PORT);
+        fail("ES8 instance should be reachable at " + ES8_HOST + ":" + ES8_PORT);
+      }
+      System.out.println("Step 1 completed: ES8 connectivity verified");
       
-      // Only test basic connectivity first
-      assertTrue("ES8 instance should be reachable", isElasticsearchReachable(currentHost, currentPort));
-      assertNotNull("IndexWriter should be initialized", indexWriter);
-      System.out.println("Step 3: Basic connectivity verified");
+      // Step 2: Configure IndexWriter with minimal timeout
+      System.out.println("Step 2: Configuring IndexWriter for ES8...");
+      setupForES8WithTimeout();
+      System.out.println("Step 2 completed: IndexWriter configured");
       
-      // Test simple document write/read
-      System.out.println("Step 4: Testing simple document operations...");
-      testSimpleDocumentOperation();
-      System.out.println("Step 5: Simple document operations completed");
+      // Step 3: Test very simple document operation
+      System.out.println("Step 3: Testing simple document write...");
+      testSimpleDocumentWrite();
+      System.out.println("Step 3 completed: Document write successful");
       
       System.out.println("=== Elasticsearch 8 integration test completed successfully ===");
-      LOG.info("=== Elasticsearch 8 integration test completed successfully ===");
     } catch (Exception e) {
       System.err.println("ERROR in ES8 integration test: " + e.getMessage());
       e.printStackTrace();
@@ -165,24 +163,80 @@ public class TestElasticIndexWriterIntegration {
   }
   
   /**
-   * Simple document operation test to isolate issues
+   * Simple document write test to isolate issues
    */
-  private void testSimpleDocumentOperation() throws Exception {
-    LOG.info("Testing simple document operation for ES {}", currentESVersion);
-    
-    // Create a simple test document
+  private void testSimpleDocumentWrite() throws Exception {
+    // Create a very simple test document
     NutchDocument doc = new NutchDocument();
-    doc.add("id", "simple-test-" + currentESVersion + "-" + System.currentTimeMillis());
-    doc.add("content", "This is simple test content for ES " + currentESVersion);
-    doc.add("url", "http://example.com/simple-test");
+    doc.add("id", "simple-test-" + System.currentTimeMillis());
+    doc.add("content", "Simple test content");
     
     System.out.println("Writing simple test document...");
     indexWriter.write(doc);
     System.out.println("Committing document...");
     indexWriter.commit();
-    System.out.println("Simple document operation completed successfully");
+    System.out.println("Simple document write completed successfully");
+  }
+
+  /**
+   * Setup for ES8 with timeout protection
+   */
+  private void setupForES8WithTimeout() throws Exception {
+    currentESVersion = "8";
+    currentHost = ES8_HOST;
+    currentPort = ES8_PORT;
     
-    LOG.info("Simple document operation test passed for ES {}", currentESVersion);
+    System.out.println("Configuring IndexWriter for ES8 with timeout protection...");
+    Map<String, String> parameters = new HashMap<>();
+    parameters.put(ElasticConstants.HOSTS, currentHost);
+    parameters.put(ElasticConstants.PORT, String.valueOf(currentPort));
+    parameters.put(ElasticConstants.SCHEME, SCHEME);
+    parameters.put(ElasticConstants.INDEX, TEST_INDEX);
+    parameters.put(ElasticConstants.USE_AUTH, "false");
+
+    params = new IndexWriterParams(parameters);
+    
+    // Close existing writer if open
+    if (indexWriter != null) {
+      try {
+        indexWriter.close();
+      } catch (IOException e) {
+        // Ignore
+      }
+    }
+    
+    indexWriter = new ElasticIndexWriter();
+    indexWriter.setConf(conf);
+    
+    // Open with timeout protection
+    System.out.println("Opening IndexWriter with 10 second timeout...");
+    
+    // Use a separate thread to detect hanging
+    final Exception[] openException = new Exception[1];
+    final boolean[] openCompleted = new boolean[1];
+    
+    Thread openThread = new Thread(() -> {
+      try {
+        indexWriter.open(params);
+        openCompleted[0] = true;
+      } catch (Exception e) {
+        openException[0] = e;
+      }
+    });
+    
+    openThread.start();
+    openThread.join(10000); // 10 second timeout
+    
+    if (!openCompleted[0] && openException[0] == null) {
+      openThread.interrupt();
+      throw new RuntimeException("IndexWriter.open() timed out after 10 seconds");
+    }
+    
+    if (openException[0] != null) {
+      throw openException[0];
+    }
+    
+    System.out.println("IndexWriter opened successfully");
   }
 
   /**
@@ -523,53 +577,39 @@ public class TestElasticIndexWriterIntegration {
   }
 
   private void waitForElasticsearch(String host, int port) throws Exception {
-    System.out.println("=== Waiting for Elasticsearch at " + host + ":" + port + " ===");
-    LOG.info("Waiting for Elasticsearch at {}:{} to be ready...", host, port);
+    System.out.println("Waiting for Elasticsearch at " + host + ":" + port + "...");
     
     HttpClient client = HttpClient.newBuilder()
-        .connectTimeout(Duration.ofSeconds(3))  // Shorter timeout
+        .connectTimeout(Duration.ofSeconds(2))
         .build();
     
-    int maxRetries = 10;  // Reduced further
-    int retryCount = 0;
+    int maxRetries = 5; // Reduced to 5 attempts
     
-    while (retryCount < maxRetries) {
-      System.out.println("Attempt " + (retryCount + 1) + "/" + maxRetries + " to connect to ES at " + host + ":" + port);
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      System.out.println("Attempt " + attempt + "/" + maxRetries + " to connect to ES");
       try {
         HttpRequest request = HttpRequest.newBuilder()
             .uri(URI.create("http://" + host + ":" + port + "/_cluster/health"))
-            .timeout(Duration.ofSeconds(2))  // Very short timeout
+            .timeout(Duration.ofSeconds(2))
             .GET()
             .build();
         
-        System.out.println("Sending request to: http://" + host + ":" + port + "/_cluster/health");
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-        System.out.println("Response status: " + response.statusCode());
         
         if (response.statusCode() == 200) {
-          System.out.println("=== Elasticsearch at " + host + ":" + port + " is ready ===");
-          LOG.info("Elasticsearch at {}:{} is ready", host, port);
+          System.out.println("Elasticsearch at " + host + ":" + port + " is ready");
           return;
         }
-        LOG.info("ES at {}:{} returned status {}, retrying...", host, port, response.statusCode());
       } catch (Exception e) {
-        System.out.println("Connection attempt failed: " + e.getMessage());
-        LOG.info("Elasticsearch not ready yet, retrying... ({}/{}): {}", 
-                  retryCount + 1, maxRetries, e.getClass().getSimpleName() + ": " + e.getMessage());
+        System.out.println("Connection attempt " + attempt + " failed: " + e.getClass().getSimpleName());
       }
       
-      retryCount++;
-      try {
-        Thread.sleep(2000);  // Wait 2 seconds between attempts
-      } catch (InterruptedException ie) {
-        Thread.currentThread().interrupt();
-        throw new RuntimeException("Interrupted while waiting for Elasticsearch", ie);
+      if (attempt < maxRetries) {
+        Thread.sleep(2000); // Wait 2 seconds between attempts
       }
     }
     
-    String errorMsg = "Elasticsearch at " + host + ":" + port + " did not become ready within " + (maxRetries * 2) + " seconds";
-    System.err.println("ERROR: " + errorMsg);
-    throw new RuntimeException(errorMsg);
+    throw new RuntimeException("Elasticsearch at " + host + ":" + port + " did not become ready after " + maxRetries + " attempts");
   }
 
   private boolean isElasticsearchReachable(String host, int port) {

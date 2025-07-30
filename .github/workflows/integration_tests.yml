@@ -85,33 +85,51 @@ jobs:
         run: |
           echo "Waiting for Elasticsearch services to be ready..."
           
-          # Function to wait for ES instance
+          # Function to wait for ES instance with shorter timeouts
           wait_for_es() {
             local port=$1
             local version=$2
             echo "Waiting for ES$version on port $port..."
             
-            for i in {1..60}; do
-              if curl -s "http://localhost:$port/_cluster/health" > /dev/null 2>&1; then
-                local health=$(curl -s "http://localhost:$port/_cluster/health")
+            for i in {1..30}; do # Reduced from 60 to 30
+              if curl -s --connect-timeout 2 --max-time 3 "http://localhost:$port/_cluster/health" > /dev/null 2>&1; then
+                local health=$(curl -s --connect-timeout 2 --max-time 3 "http://localhost:$port/_cluster/health")
                 if echo "$health" | grep -q '"status":"green"\|"status":"yellow"'; then
                   echo "ES$version is ready on port $port"
-                  echo "Health status: $health"
                   return 0
                 fi
               fi
-              echo "ES$version not ready yet, waiting... ($i/60)"
-              sleep 5
+              echo "ES$version not ready yet, waiting... ($i/30)"
+              sleep 3 # Reduced from 5 to 3 seconds
             done
             
-            echo "ES$version failed to become ready on port $port"
+            echo "ES$version failed to become ready on port $port after 30 attempts"
             return 1
           }
           
-          # Wait for both instances
-          wait_for_es 9200 8 &
-          wait_for_es 9201 9 &
-          wait
+          # Wait for both instances in parallel with timeout
+          timeout 120s bash -c '
+            wait_for_es() {
+              local port=$1
+              local version=$2
+              for i in {1..30}; do
+                if curl -s --connect-timeout 2 --max-time 3 "http://localhost:$port/_cluster/health" > /dev/null 2>&1; then
+                  local health=$(curl -s --connect-timeout 2 --max-time 3 "http://localhost:$port/_cluster/health")
+                  if echo "$health" | grep -q "\"status\":\"green\"\\|\"status\":\"yellow\""; then
+                    echo "ES$version is ready on port $port"
+                    return 0
+                  fi
+                fi
+                echo "ES$version not ready yet, waiting... ($i/30)"
+                sleep 3
+              done
+              return 1
+            }
+            
+            wait_for_es 9200 8 &
+            wait_for_es 9201 9 &
+            wait
+          '
           
       - name: integration tests
         if: ${{ steps.filter.outputs.elastic == 'true' || steps.filter.outputs.buildconf == 'true' || steps.filter.outputs.workflow == 'true' }}
@@ -136,12 +154,22 @@ jobs:
           echo ""
           
           # Set system properties for log4j2 to prevent infinite loop
-          export ANT_OPTS="-Dhadoop.log.dir=/tmp -Dhadoop.log.file=test.log"
+          export ANT_OPTS="-Dhadoop.log.dir=/tmp/nutch-test -Dhadoop.log.file=test.log -Djava.io.tmpdir=/tmp"
           
-          # Run simple connectivity test first
-          echo "Running connectivity test..."
-          timeout 60s ant test-connectivity || { echo "Connectivity test failed or timed out"; exit 1; }
+          # Run simple connectivity test first with very short timeout
+          echo "Running connectivity test with 30 second timeout..."
+          timeout 30s ant test-connectivity || { 
+            echo "Connectivity test failed or timed out after 30 seconds"; 
+            echo "Checking ant processes...";
+            ps aux | grep ant || true;
+            exit 1; 
+          }
           
-          # If connectivity test passes, run ES8 integration test only
-          echo "Running ES8 integration test..."
-          timeout 120s ant integration-test-es8-only || { echo "ES8 integration test failed or timed out"; exit 1; }
+          # If connectivity test passes, run ES8 integration test only with short timeout
+          echo "Running ES8 integration test with 60 second timeout..."
+          timeout 60s ant integration-test-es8-only || { 
+            echo "ES8 integration test failed or timed out after 60 seconds"; 
+            echo "Checking ant processes...";
+            ps aux | grep ant || true;
+            exit 1; 
+          }
