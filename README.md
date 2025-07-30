@@ -94,3 +94,69 @@ Running in Intellij
 - Select "Modify options" > "Add VM Options". Add the VM options needed. You can get these by running the crawl executable for your job (e.g. -Xmx4096m -Dhadoop.log.dir=/Users/kamil/workspace/external/nutch/runtime/local/logs -Dhadoop.log.file=hadoop.log -Dmapreduce.job.reduces=2 -Dmapreduce.reduce.speculative=false -Dmapreduce.map.speculative=false -Dmapreduce.map.output.compress=true)
 
 **Note**: You will need to manually trigger a build through ANT to get latest updated changes when running. This is because the ant build system is separate from the Intellij one.
+
+## Testing
+
+Nutch includes comprehensive unit tests and integration tests to ensure code quality and functionality.
+
+### Running Tests
+
+```bash
+# Run all unit tests
+ant test
+
+# Run only core tests
+ant test-core
+
+# Run only plugin tests  
+ant test-plugins
+
+# Run integration tests (requires Docker)
+ant integration-test
+
+# Run all tests (unit + integration)
+ant test-all
+```
+
+### Integration Tests
+
+Integration tests use real external services (like Elasticsearch) running in Docker containers. Currently available:
+
+- **Elasticsearch Integration Tests**: Test indexer-elastic plugin against Elasticsearch 8.x and 9.x instances
+
+#### Prerequisites for Integration Tests
+- Docker and Docker Compose installed and running
+- Available ports: 9200, 9201, 9300, 9301
+
+#### Manual Integration Test Management
+
+```bash
+# Navigate to the plugin directory
+cd src/plugin/indexer-elastic
+
+# Start Elasticsearch containers
+./integration-test.sh start
+
+# Check status
+./integration-test.sh status
+
+# Run tests manually
+./integration-test.sh test
+
+# Stop containers
+./integration-test.sh stop
+```
+
+### Continuous Integration
+
+Tests run automatically via GitHub Actions on:
+- Every commit to pull requests
+- Every merge to master branch
+
+The CI pipeline includes:
+- **Unit Tests**: Run on Ubuntu and macOS with Java 11
+- **Integration Tests**: Run on Ubuntu with Docker services
+- **License Checking**: Apache RAT license validation
+- **Documentation**: Javadoc generation
+
+See `.github/workflows/master-build.yml` for the complete CI configuration.

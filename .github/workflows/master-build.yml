@@ -97,3 +97,32 @@ jobs:
       - name: test plugins
         if: ${{ steps.filter.outputs.plugins == 'true' && steps.filter.outputs.core == 'false' && steps.filter.outputs.buildconf == 'false' }}
         run: ant clean test-plugins -buildfile build.xml
+
+  integration-tests:
+    strategy:
+      matrix:
+        java: ['11']
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v4.5.0
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+      - uses: dorny/paths-filter@v3.0.0
+        id: filter
+        with:
+          filters: |
+            elastic:
+              - 'src/plugin/indexer-elastic/**'
+            buildconf:
+              - 'build.xml'
+              - 'ivy/ivy.xml'
+      # Only run integration tests if elastic plugin or build config changed
+      - name: integration tests
+        if: ${{ steps.filter.outputs.elastic == 'true' || steps.filter.outputs.buildconf == 'true' }}
+        run: |
+          echo "Starting Elasticsearch integration tests..."
+          ant clean integration-test -buildfile build.xml

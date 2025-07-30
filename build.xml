@@ -527,6 +527,14 @@
     <ant dir="src/plugin" target="test-single" inheritAll="false"/>
   </target>
 
+  <target name="integration-test-elastic" depends="resolve-test, compile, compile-core-test" description="--> run Elasticsearch integration tests">
+    <ant dir="src/plugin/indexer-elastic" target="integration-test" inheritAll="false"/>
+  </target>
+
+  <target name="integration-test" depends="integration-test-elastic" description="--> run all integration tests"/>
+
+  <target name="test-all" depends="test, integration-test" description="--> run all unit tests and integration tests"/>
+
   <target name="nightly" depends="test, tar-src, zip-src" description="--> run the nightly target build">
   </target>
 
