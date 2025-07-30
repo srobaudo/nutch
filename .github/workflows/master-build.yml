@@ -104,6 +104,41 @@ jobs:
         java: ['11']
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
+    services:
+      elasticsearch8:
+        image: elasticsearch:8.18.4
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: false
+          xpack.security.enrollment.enabled: false
+          ES_JAVA_OPTS: -Xms512m -Xmx512m
+          bootstrap.memory_lock: true
+        ports:
+          - 9200:9200
+          - 9300:9300
+        options: >-
+          --health-cmd "curl -f http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=30s"
+          --health-interval 30s
+          --health-timeout 10s
+          --health-retries 5
+          --health-start-period 60s
+      elasticsearch9:
+        image: elasticsearch:9.0.4
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: false
+          xpack.security.enrollment.enabled: false
+          ES_JAVA_OPTS: -Xms512m -Xmx512m
+          bootstrap.memory_lock: true
+        ports:
+          - 9201:9200
+          - 9301:9300
+        options: >-
+          --health-cmd "curl -f http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=30s"
+          --health-interval 30s
+          --health-timeout 10s
+          --health-retries 5
+          --health-start-period 60s
     steps:
       - uses: actions/checkout@v4.2.2
       - name: Set up JDK ${{ matrix.java }}
@@ -120,9 +155,12 @@ jobs:
             buildconf:
               - 'build.xml'
               - 'ivy/ivy.xml'
-      # Only run integration tests if elastic plugin or build config changed
+            workflow:
+              - '.github/workflows/**'
+      # Only run integration tests if elastic plugin, build config, or workflow changed
       - name: integration tests
-        if: ${{ steps.filter.outputs.elastic == 'true' || steps.filter.outputs.buildconf == 'true' }}
+        if: ${{ steps.filter.outputs.elastic == 'true' || steps.filter.outputs.buildconf == 'true' || steps.filter.outputs.workflow == 'true' }}
         run: |
-          echo "Starting Elasticsearch integration tests..."
+          echo "Starting Elasticsearch integration tests with GitHub Actions services..."
+          echo "ES8 available at localhost:9200, ES9 available at localhost:9201"
           ant clean integration-test -buildfile build.xml

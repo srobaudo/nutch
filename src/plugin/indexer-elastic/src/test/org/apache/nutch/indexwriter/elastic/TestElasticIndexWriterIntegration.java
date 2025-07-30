@@ -61,9 +61,9 @@ public class TestElasticIndexWriterIntegration {
       .getLogger(TestElasticIndexWriterIntegration.class);
 
   private static final String ES8_HOST = "localhost";
-  private static final int ES8_PORT = 9200;
+  private static final int ES8_PORT = Integer.getInteger("elasticsearch8.port", 9200);
   private static final String ES9_HOST = "localhost";
-  private static final int ES9_PORT = 9201;
+  private static final int ES9_PORT = Integer.getInteger("elasticsearch9.port", 9201);
   private static final String TEST_INDEX = "nutch-integration-test";
   private static final String SCHEME = "http";
   

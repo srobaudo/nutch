@@ -44,6 +44,12 @@ error() {
 check_prerequisites() {
     log "Checking prerequisites..."
     
+    # Check if running in GitHub Actions
+    if [ "$GITHUB_ACTIONS" == "true" ]; then
+        log "Running in GitHub Actions - using services instead of Docker Compose"
+        return 0
+    fi
+    
     if ! command -v docker &> /dev/null; then
         error "Docker is not installed or not in PATH"
         exit 1
@@ -63,7 +69,24 @@ check_prerequisites() {
 }
 
 start_elasticsearch() {
-    log "Starting Elasticsearch containers..."
+    # Check if running in GitHub Actions
+    if [ "$GITHUB_ACTIONS" == "true" ]; then
+        log "Running in GitHub Actions - Elasticsearch services should already be available"
+        log "Waiting for GitHub Actions Elasticsearch services to be ready..."
+        
+        # Wait for ES 8 service
+        log "Waiting for Elasticsearch 8 service (port 9200)..."
+        wait_for_elasticsearch "localhost" "9200" "8"
+        
+        # Wait for ES 9 service
+        log "Waiting for Elasticsearch 9 service (port 9201)..."
+        wait_for_elasticsearch "localhost" "9201" "9"
+        
+        log "All GitHub Actions Elasticsearch services are ready!"
+        return 0
+    fi
+    
+    log "Starting Elasticsearch containers locally..."
     
     cd "$SCRIPT_DIR"
     docker compose -f docker-compose-elasticsearch.yml up -d
@@ -107,7 +130,13 @@ wait_for_elasticsearch() {
 }
 
 stop_elasticsearch() {
-    log "Stopping Elasticsearch containers..."
+    # Check if running in GitHub Actions
+    if [ "$GITHUB_ACTIONS" == "true" ]; then
+        log "Running in GitHub Actions - Elasticsearch services will be cleaned up automatically"
+        return 0
+    fi
+    
+    log "Stopping Elasticsearch containers locally..."
     
     cd "$SCRIPT_DIR"
     docker compose -f docker-compose-elasticsearch.yml down -v

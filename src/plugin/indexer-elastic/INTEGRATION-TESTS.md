@@ -8,7 +8,7 @@ The integration test suite provides end-to-end validation of the ES 8/9 upgrade 
 - Running tests against actual Elasticsearch instances (not mocks)
 - Testing both Elasticsearch 8.x and 9.x compatibility
 - Validating document indexing, bulk operations, and error handling
-- Using Docker Compose for consistent test environments
+- Supporting both local Docker Compose and GitHub Actions environments
 
 ## Test Structure
 
@@ -31,18 +31,25 @@ The main integration test class that runs identical test suites against both ES 
 - Error condition handling
 - Connection management
 
-## Docker Environment
+## Test Environments
 
-### docker-compose-elasticsearch.yml
-Defines two Elasticsearch services:
-- **elasticsearch8**: ES 8.11.0 on ports 9200/9300
-- **elasticsearch9**: ES 9.0.0 on ports 9201/9301
+### Local Testing with Docker Compose
+Uses `docker-compose-elasticsearch.yml` with two Elasticsearch services:
+- **elasticsearch8**: ES 8.18.4 on ports 9200/9300
+- **elasticsearch9**: ES 9.0.4 on ports 9201/9301
 
 **Configuration:**
 - Single-node clusters for testing
 - Security disabled for simplified testing
 - Health checks with 60s startup timeout
 - Memory limited to 512MB per instance
+
+### GitHub Actions Integration
+Uses GitHub Actions services instead of Docker Compose:
+- **elasticsearch8 service**: ES 8.18.4 on port 9200
+- **elasticsearch9 service**: ES 9.0.4 on port 9201
+- **Automatic detection**: Tests detect environment and adjust accordingly
+- **Port configuration**: Uses system properties for flexible port mapping
 
 ## Running Integration Tests
 

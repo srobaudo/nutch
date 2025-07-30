@@ -29,8 +29,27 @@
   </target>
 
   <!-- Integration test targets -->
-  <target name="integration-test-start-es" description="Start Elasticsearch containers for integration testing">
-    <echo message="Starting Elasticsearch containers for integration testing..."/>
+  <target name="integration-test-detect-env" description="Detect if running in GitHub Actions or locally">
+    <!-- Check if we're running in GitHub Actions -->
+    <condition property="github.actions" value="true">
+      <isset property="env.GITHUB_ACTIONS"/>
+    </condition>
+    
+    <!-- Set default ports for local testing -->
+    <property name="es8.port" value="9200"/>
+    <property name="es9.port" value="9201"/>
+    
+    <condition property="use.github.services">
+      <istrue value="${github.actions}"/>
+    </condition>
+    
+    <echo message="GitHub Actions detected: ${github.actions}"/>
+    <echo message="Using GitHub Actions services: ${use.github.services}"/>
+  </target>
+
+  <target name="integration-test-start-es" depends="integration-test-detect-env" 
+          unless="use.github.services" description="Start Elasticsearch containers for local integration testing">
+    <echo message="Starting Elasticsearch containers for local integration testing..."/>
     <exec executable="docker" dir="${basedir}" failonerror="true">
       <arg value="compose"/>
       <arg value="-f"/>
@@ -42,16 +61,17 @@
     <sleep seconds="30"/>
     <!-- Wait for ES8 -->
     <waitfor maxwait="120" maxwaitunit="second" checkevery="5" checkeveryunit="second">
-      <http url="http://localhost:9200/_cluster/health"/>
+      <http url="http://localhost:${es8.port}/_cluster/health"/>
     </waitfor>
     <!-- Wait for ES9 -->
     <waitfor maxwait="120" maxwaitunit="second" checkevery="5" checkeveryunit="second">
-      <http url="http://localhost:9201/_cluster/health"/>
+      <http url="http://localhost:${es9.port}/_cluster/health"/>
     </waitfor>
     <echo message="Elasticsearch containers are ready for testing"/>
   </target>
 
-  <target name="integration-test-stop-es" description="Stop Elasticsearch containers">
+  <target name="integration-test-stop-es" depends="integration-test-detect-env" 
+          unless="use.github.services" description="Stop Elasticsearch containers">
     <echo message="Stopping Elasticsearch containers..."/>
     <exec executable="docker" dir="${basedir}" failonerror="false">
       <arg value="compose"/>
@@ -63,12 +83,30 @@
     <echo message="Elasticsearch containers stopped"/>
   </target>
 
-  <target name="integration-test-check-docker" description="Check if Docker and Docker Compose are available">
-    <echo message="Checking Docker availability..."/>
+  <target name="integration-test-wait-github-services" depends="integration-test-detect-env"
+          if="use.github.services" description="Wait for GitHub Actions Elasticsearch services to be ready">
+    <echo message="Waiting for GitHub Actions Elasticsearch services to be ready..."/>
+    <echo message="ES8 service: localhost:${es8.port}"/>
+    <echo message="ES9 service: localhost:${es9.port}"/>
+    
+    <!-- Wait for ES8 service -->
+    <waitfor maxwait="120" maxwaitunit="second" checkevery="5" checkeveryunit="second">
+      <http url="http://localhost:${es8.port}/_cluster/health"/>
+    </waitfor>
+    <!-- Wait for ES9 service -->
+    <waitfor maxwait="120" maxwaitunit="second" checkevery="5" checkeveryunit="second">
+      <http url="http://localhost:${es9.port}/_cluster/health"/>
+    </waitfor>
+    <echo message="GitHub Actions Elasticsearch services are ready for testing"/>
+  </target>
+
+  <target name="integration-test-check-docker" depends="integration-test-detect-env"
+          unless="use.github.services" description="Check if Docker and Docker Compose are available for local testing">
+    <echo message="Checking Docker availability for local testing..."/>
     <exec executable="docker" outputproperty="docker.version" failonerror="false" resultproperty="docker.result">
       <arg value="--version"/>
     </exec>
-    <fail message="Docker is not available. Please install Docker to run integration tests.">
+    <fail message="Docker is not available. Please install Docker to run integration tests locally.">
       <condition>
         <not><equals arg1="${docker.result}" arg2="0"/></not>
       </condition>
@@ -78,7 +116,7 @@
       <arg value="compose"/>
       <arg value="version"/>
     </exec>
-    <fail message="Docker Compose is not available. Please install Docker Compose to run integration tests.">
+    <fail message="Docker Compose is not available. Please install Docker Compose to run integration tests locally.">
       <condition>
         <not><equals arg1="${docker-compose.result}" arg2="0"/></not>
       </condition>
@@ -88,21 +126,33 @@
     <echo message="Docker Compose version: ${docker-compose.version}"/>
   </target>
 
-  <target name="integration-test" depends="integration-test-check-docker, compile-test, integration-test-start-es" 
+  <target name="integration-test-setup" depends="integration-test-detect-env, integration-test-check-docker, integration-test-start-es, integration-test-wait-github-services"
+          description="Setup Elasticsearch instances for integration testing">
+    <echo message="Elasticsearch setup completed"/>
+  </target>
+
+  <target name="integration-test" depends="compile-test, integration-test-setup" 
           description="Run integration tests against real Elasticsearch instances">
     <echo message="Running integration tests against Elasticsearch 8 and 9..."/>
+    <condition property="env.description" value="GitHub Actions services" else="local Docker containers">
+      <istrue value="${use.github.services}"/>
+    </condition>
+    <echo message="Testing environment: ${env.description}"/>
     
     <junit showoutput="yes" printsummary="yes" haltonfailure="no" fork="yes" maxmemory="256m"
            errorProperty="tests.failed" failureProperty="tests.failed">
       <sysproperty key="test.data" value="${build.test}/data"/>
       <sysproperty key="test.input" value="${root}/data"/>
-      <sysproperty key="javax.xml.parsers.DocumentBuilderFactory" value="com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl"/> 
+      <sysproperty key="javax.xml.parsers.DocumentBuilderFactory" value="com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl"/>
+      <!-- Set Elasticsearch ports for tests --> 
+      <sysproperty key="elasticsearch8.port" value="${es8.port}"/>
+      <sysproperty key="elasticsearch9.port" value="${es9.port}"/>
       <classpath refid="test.classpath"/>
       <formatter type="${test.junit.output.format}" />
       <test name="org.apache.nutch.indexwriter.elastic.TestElasticIndexWriterIntegration" todir="${build.test}"/>
     </junit>
 
-    <!-- Always stop containers, even if tests fail -->
+    <!-- Always stop containers if running locally, even if tests fail -->
     <antcall target="integration-test-stop-es"/>
 
     <fail if="tests.failed">Integration tests failed!</fail>
