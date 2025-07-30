@@ -28,5 +28,91 @@
   <target name="deps-test">
   </target>
 
+  <!-- Integration test targets -->
+  <target name="integration-test-start-es" description="Start Elasticsearch containers for integration testing">
+    <echo message="Starting Elasticsearch containers for integration testing..."/>
+    <exec executable="docker" dir="${basedir}" failonerror="true">
+      <arg value="compose"/>
+      <arg value="-f"/>
+      <arg value="docker-compose-elasticsearch.yml"/>
+      <arg value="up"/>
+      <arg value="-d"/>
+    </exec>
+    <echo message="Waiting for Elasticsearch containers to be ready..."/>
+    <sleep seconds="30"/>
+    <!-- Wait for ES8 -->
+    <waitfor maxwait="120" maxwaitunit="second" checkevery="5" checkeveryunit="second">
+      <http url="http://localhost:9200/_cluster/health"/>
+    </waitfor>
+    <!-- Wait for ES9 -->
+    <waitfor maxwait="120" maxwaitunit="second" checkevery="5" checkeveryunit="second">
+      <http url="http://localhost:9201/_cluster/health"/>
+    </waitfor>
+    <echo message="Elasticsearch containers are ready for testing"/>
+  </target>
+
+  <target name="integration-test-stop-es" description="Stop Elasticsearch containers">
+    <echo message="Stopping Elasticsearch containers..."/>
+    <exec executable="docker" dir="${basedir}" failonerror="false">
+      <arg value="compose"/>
+      <arg value="-f"/>
+      <arg value="docker-compose-elasticsearch.yml"/>
+      <arg value="down"/>
+      <arg value="-v"/>
+    </exec>
+    <echo message="Elasticsearch containers stopped"/>
+  </target>
+
+  <target name="integration-test-check-docker" description="Check if Docker and Docker Compose are available">
+    <echo message="Checking Docker availability..."/>
+    <exec executable="docker" outputproperty="docker.version" failonerror="false" resultproperty="docker.result">
+      <arg value="--version"/>
+    </exec>
+    <fail message="Docker is not available. Please install Docker to run integration tests.">
+      <condition>
+        <not><equals arg1="${docker.result}" arg2="0"/></not>
+      </condition>
+    </fail>
+    
+    <exec executable="docker" outputproperty="docker-compose.version" failonerror="false" resultproperty="docker-compose.result">
+      <arg value="compose"/>
+      <arg value="version"/>
+    </exec>
+    <fail message="Docker Compose is not available. Please install Docker Compose to run integration tests.">
+      <condition>
+        <not><equals arg1="${docker-compose.result}" arg2="0"/></not>
+      </condition>
+    </fail>
+    
+    <echo message="Docker version: ${docker.version}"/>
+    <echo message="Docker Compose version: ${docker-compose.version}"/>
+  </target>
+
+  <target name="integration-test" depends="integration-test-check-docker, compile-test, integration-test-start-es" 
+          description="Run integration tests against real Elasticsearch instances">
+    <echo message="Running integration tests against Elasticsearch 8 and 9..."/>
+    
+    <junit showoutput="yes" printsummary="yes" haltonfailure="no" fork="yes" maxmemory="256m"
+           errorProperty="tests.failed" failureProperty="tests.failed">
+      <sysproperty key="test.data" value="${build.test}/data"/>
+      <sysproperty key="test.input" value="${root}/data"/>
+      <sysproperty key="javax.xml.parsers.DocumentBuilderFactory" value="com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl"/> 
+      <classpath refid="test.classpath"/>
+      <formatter type="${test.junit.output.format}" />
+      <test name="org.apache.nutch.indexwriter.elastic.TestElasticIndexWriterIntegration" todir="${build.test}"/>
+    </junit>
+
+    <!-- Always stop containers, even if tests fail -->
+    <antcall target="integration-test-stop-es"/>
+
+    <fail if="tests.failed">Integration tests failed!</fail>
+    <echo message="Integration tests completed successfully"/>
+  </target>
+
+  <target name="test-all" depends="test, integration-test" 
+          description="Run both unit tests and integration tests">
+    <echo message="All tests completed successfully"/>
+  </target>
+
 
 </project>
