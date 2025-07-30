@@ -15,16 +15,11 @@
 
 name: master pull request ci
 
-permissions:
-  contents: read
-  actions: read
-  checks: write
-
 on:
   push:
     branches: [master]
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    types: [opened, synchronize, reopened]
     branches: [master]
   workflow_dispatch:
 jobs:
@@ -111,6 +106,37 @@ jobs:
         java: ['11']
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
+    services:
+      elasticsearch8:
+        image: elasticsearch:8.18.4
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: false
+          xpack.security.enrollment.enabled: false
+          ES_JAVA_OPTS: -Xms512m -Xmx512m
+        ports:
+          - 9200:9200
+        options: >-
+          --health-cmd "curl -f http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=30s"
+          --health-interval 30s
+          --health-timeout 10s
+          --health-retries 5
+          --health-start-period 60s
+      elasticsearch9:
+        image: elasticsearch:9.0.4
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: false
+          xpack.security.enrollment.enabled: false
+          ES_JAVA_OPTS: -Xms512m -Xmx512m
+        ports:
+          - 9201:9200
+        options: >-
+          --health-cmd "curl -f http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=30s"
+          --health-interval 30s
+          --health-timeout 10s
+          --health-retries 5
+          --health-start-period 60s
     steps:
       - uses: actions/checkout@v4.2.2
       - name: Set up JDK ${{ matrix.java }}
@@ -118,18 +144,24 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
-      
-      # Test basic workflow functionality
-      - name: Test workflow trigger
+      - uses: dorny/paths-filter@v3.0.0
+        id: filter
+        with:
+          filters: |
+            elastic:
+              - 'src/plugin/indexer-elastic/**'
+            buildconf:
+              - 'build.xml'
+              - 'ivy/ivy.xml'
+            workflow:
+              - '.github/workflows/**'
+      # Only run integration tests if elastic plugin, build config, or workflow changed
+      - name: integration tests
+        if: ${{ steps.filter.outputs.elastic == 'true' || steps.filter.outputs.buildconf == 'true' || steps.filter.outputs.workflow == 'true' }}
         run: |
-          echo "Integration test workflow is running!"
-          echo "Event: ${{ github.event_name }}"
-          echo "Action: ${{ github.event.action }}"
-          echo "Branch: ${{ github.ref }}"
-          echo "Commit: ${{ github.sha }}"
-          
-      # Skip actual integration tests for now to test workflow triggering
-      - name: Skip integration tests temporarily
-        run: |
-          echo "Skipping actual integration tests to test workflow triggering first"
-          echo "Once workflow triggering is confirmed working, will restore full ES integration tests"
+          echo "Starting Elasticsearch integration tests..."
+          echo "ES8 available at localhost:9200, ES9 available at localhost:9201"
+          # Wait for ES to be ready
+          timeout 60 bash -c 'until curl -f http://localhost:9200/_cluster/health; do echo "Waiting for ES8..."; sleep 5; done'
+          timeout 60 bash -c 'until curl -f http://localhost:9201/_cluster/health; do echo "Waiting for ES9..."; sleep 5; done'
+          ant clean integration-test -buildfile build.xml
