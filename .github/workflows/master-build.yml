@@ -14,11 +14,18 @@
 # limitations under the License.
 
 name: master pull request ci
+
+permissions:
+  contents: read
+  actions: read
+  checks: write
+
 on:
   push:
     branches: [master]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    branches: [master]
   workflow_dispatch:
 jobs:
   javadoc:
@@ -157,10 +164,22 @@ jobs:
               - 'ivy/ivy.xml'
             workflow:
               - '.github/workflows/**'
-      # Only run integration tests if elastic plugin, build config, or workflow changed
+      # Check what triggered the workflow
+      - name: Debug workflow trigger
+        run: |
+          echo "Filter outputs:"
+          echo "elastic: ${{ steps.filter.outputs.elastic }}"
+          echo "buildconf: ${{ steps.filter.outputs.buildconf }}"
+          echo "workflow: ${{ steps.filter.outputs.workflow }}"
+          echo "Event: ${{ github.event_name }}"
+          echo "Action: ${{ github.event.action }}"
+      
+      # Run integration tests - temporarily always run to test workflow triggering
       - name: integration tests
-        if: ${{ steps.filter.outputs.elastic == 'true' || steps.filter.outputs.buildconf == 'true' || steps.filter.outputs.workflow == 'true' }}
         run: |
           echo "Starting Elasticsearch integration tests with GitHub Actions services..."
           echo "ES8 available at localhost:9200, ES9 available at localhost:9201"
+          # Wait for ES to be ready
+          timeout 60 bash -c 'until curl -f http://localhost:9200/_cluster/health; do echo "Waiting for ES8..."; sleep 5; done'
+          timeout 60 bash -c 'until curl -f http://localhost:9201/_cluster/health; do echo "Waiting for ES9..."; sleep 5; done'
           ant clean integration-test -buildfile build.xml
