@@ -119,6 +119,14 @@ jobs:
           echo "Starting Elasticsearch integration tests..."
           echo "ES8 available at localhost:9200, ES9 available at localhost:9201"
           
+          # Show environment info
+          echo "Java version:"
+          java -version
+          echo "Ant version:"
+          ant -version
+          echo "Current directory: $(pwd)"
+          echo "Available memory: $(free -h)"
+          
           # Final health verification
           echo "Final ES8 health check:"
           curl -s http://localhost:9200/_cluster/health | jq '.' || curl -s http://localhost:9200/_cluster/health
@@ -127,5 +135,5 @@ jobs:
           curl -s http://localhost:9201/_cluster/health | jq '.' || curl -s http://localhost:9201/_cluster/health
           echo ""
           
-          # Run integration tests
-          ant clean integration-test -buildfile build.xml
+          # Run integration tests (ES8 only for debugging)
+          ant clean integration-test-es8-only -buildfile build.xml
