@@ -531,6 +531,14 @@
     <ant dir="src/plugin/indexer-elastic" target="integration-test" inheritAll="false"/>
   </target>
 
+  <target name="test-connectivity" depends="resolve-test, compile, compile-core-test" description="--> run Elasticsearch connectivity tests">
+    <ant dir="src/plugin/indexer-elastic" target="test-connectivity" inheritAll="false"/>
+  </target>
+
+  <target name="integration-test-es8-only" depends="resolve-test, compile, compile-core-test" description="--> run Elasticsearch 8 only integration tests">
+    <ant dir="src/plugin/indexer-elastic" target="integration-test-es8-only" inheritAll="false"/>
+  </target>
+
   <target name="integration-test" depends="integration-test-elastic" description="--> run all integration tests"/>
 
   <target name="test-all" depends="test, integration-test" description="--> run all unit tests and integration tests"/>
