@@ -146,6 +146,9 @@
           description="Pre-test connectivity check for Elasticsearch services">
     <echo message="Performing pre-test connectivity check..."/>
     
+    <!-- Create logs directory -->
+    <mkdir dir="${build.test}/logs"/>
+    
     <!-- Check ES8 connectivity -->
     <echo message="Testing connectivity to ES8 at localhost:${es8.port}"/>
     <get src="http://localhost:${es8.port}/_cluster/health" 
@@ -180,6 +183,9 @@
       <sysproperty key="test.data" value="${build.test}/data"/>
       <sysproperty key="test.input" value="${root}/data"/>
       <sysproperty key="javax.xml.parsers.DocumentBuilderFactory" value="com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl"/>
+      <!-- Fix log4j2 infinite loop issue -->
+      <sysproperty key="hadoop.log.dir" value="${build.test}/logs"/>
+      <sysproperty key="hadoop.log.file" value="integration-test.log"/>
       <!-- Set Elasticsearch ports for tests --> 
       <sysproperty key="elasticsearch8.port" value="${es8.port}"/>
       <sysproperty key="elasticsearch9.port" value="${es9.port}"/>
@@ -213,6 +219,9 @@
       <sysproperty key="test.data" value="${build.test}/data"/>
       <sysproperty key="test.input" value="${root}/data"/>
       <sysproperty key="javax.xml.parsers.DocumentBuilderFactory" value="com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl"/>
+      <!-- Fix log4j2 infinite loop issue -->
+      <sysproperty key="hadoop.log.dir" value="${build.test}/logs"/>
+      <sysproperty key="hadoop.log.file" value="es8-integration-test.log"/>
       <sysproperty key="elasticsearch8.port" value="${es8.port}"/>
       <sysproperty key="elasticsearch9.port" value="${es9.port}"/>
       <classpath refid="test.classpath"/>
@@ -243,6 +252,9 @@
     
     <junit showoutput="yes" printsummary="yes" haltonfailure="no" fork="yes" maxmemory="256m"
            timeout="120000" errorProperty="tests.failed" failureProperty="tests.failed">
+      <!-- Fix log4j2 infinite loop issue -->
+      <sysproperty key="hadoop.log.dir" value="${build.test}/logs"/>
+      <sysproperty key="hadoop.log.file" value="connectivity-test.log"/>
       <sysproperty key="elasticsearch8.port" value="${es8.port}"/>
       <sysproperty key="elasticsearch9.port" value="${es9.port}"/>
       <classpath refid="test.classpath"/>
