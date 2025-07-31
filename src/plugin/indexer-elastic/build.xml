@@ -184,7 +184,7 @@
       <sysproperty key="test.input" value="${root}/data"/>
       <sysproperty key="javax.xml.parsers.DocumentBuilderFactory" value="com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl"/>
       <!-- Fix log4j2 infinite loop issue -->
-      <sysproperty key="nutch.log.dir" value="${build.test}/logs"/>
+      <sysproperty key="nutch.log.dir" value="/tmp/nutch-logs"/>
       <sysproperty key="nutch.log.file" value="integration-test.log"/>
       <!-- Set Elasticsearch ports for tests --> 
       <sysproperty key="elasticsearch8.port" value="${es8.port}"/>

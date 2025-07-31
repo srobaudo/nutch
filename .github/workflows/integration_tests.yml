@@ -160,13 +160,13 @@ jobs:
           curl -s http://localhost:9201/_cluster/health | jq '.' || curl -s http://localhost:9201/_cluster/health
           echo ""
           
-          # Set system properties for log4j2 to prevent infinite loop
-          export ANT_OPTS="-Dnutch.log.dir=/tmp/nutch-test -Dnutch.log.file=test.log -Djava.io.tmpdir=/tmp -Xmx2g"
+          # Set system properties for log4j2 - use simple concrete paths  
+          export ANT_OPTS="-Dnutch.log.dir=/tmp/nutch-logs -Dnutch.log.file=test.log -Djava.io.tmpdir=/tmp -Xmx2g"
           echo "ANT_OPTS set to: $ANT_OPTS"
           
           # Create log directory
-          mkdir -p /tmp/nutch-test
-          echo "Created log directory: /tmp/nutch-test"
+          mkdir -p /tmp/nutch-logs
+          echo "Created log directory: /tmp/nutch-logs"
           
           # Show ant targets available
           echo "Available ant targets:"
@@ -199,7 +199,7 @@ jobs:
             echo "Checking ant processes...";
             ps aux | grep ant || true;
             echo "Checking log files...";
-            find /tmp/nutch-test -name "*.log" -exec echo "=== {} ===" \; -exec cat {} \; || true;
+            echo "Skipping log file checks to avoid further hanging issues";
             exit 1; 
           }
           echo "ES8 integration test successful"

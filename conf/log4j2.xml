@@ -19,16 +19,17 @@
     <!-- default values that can be overridden by system properties:
            Note: the script bin/nutch sets these properties from the environment variables
                      NUTCH_LOG_DIR and NUTCH_LOGFILE -->
-    <Property name="nutch.log.dir">${sys:nutch.log.dir:-${sys:hadoop.log.dir:-./logs}}</Property>
-    <Property name="nutch.log.file">${sys:nutch.log.file:-${sys:hadoop.log.file:-hadoop.log}}</Property>
+    <!-- Fixed infinite loop by using concrete fallback values without self-reference -->
+    <Property name="log.dir">${sys:nutch.log.dir:-${sys:hadoop.log.dir:-./logs}}</Property>
+    <Property name="log.file">${sys:nutch.log.file:-${sys:hadoop.log.file:-hadoop.log}}</Property>
   </Properties>
   <Appenders>
-    <RollingFile name="RollingFile" fileName="${nutch.log.dir}/${nutch.log.file}"
-      filePattern="${nutch.log.dir}/$${date:yyyy-MM}/nutch-%d{yyyy-MM-dd}.log.gz">
+    <RollingFile name="RollingFile" fileName="${log.dir}/${log.file}"
+      filePattern="${log.dir}/$${date:yyyy-MM}/nutch-%d{yyyy-MM-dd}.log.gz">
       <PatternLayout pattern="%d %p %c{1.} [%t] %m%n" />
       <CronTriggeringPolicy schedule="0 0 0 * * ?" evaluateOnStartup="true" />
       <DefaultRolloverStrategy>
-        <Delete basePath="${nutch.log.dir}" maxDepth="2">
+        <Delete basePath="${log.dir}" maxDepth="2">
           <IfFileName glob="*/nutch-*.log.gz" />
           <IfLastModified age="60d" />
         </Delete>
