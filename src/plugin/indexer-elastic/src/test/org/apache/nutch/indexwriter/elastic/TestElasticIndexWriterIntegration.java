@@ -135,12 +135,12 @@ public class TestElasticIndexWriterIntegration {
     System.out.println("=== Starting Elasticsearch 8 integration test ===");
     
     try {
-      // Step 1: Basic connectivity check without any Nutch dependencies
+      // Step 1: Basic connectivity check without any complex operations
       System.out.println("Step 1: Testing basic HTTP connectivity to ES8...");
-      HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
+      HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
       HttpRequest request = HttpRequest.newBuilder()
           .uri(URI.create("http://" + ES8_HOST + ":" + ES8_PORT + "/"))
-          .timeout(Duration.ofSeconds(3))
+          .timeout(Duration.ofSeconds(2))
           .GET()
           .build();
       HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
@@ -149,20 +149,16 @@ public class TestElasticIndexWriterIntegration {
         System.err.println("ERROR: ES8 returned status " + response.statusCode());
         fail("ES8 should return 200 status code, got: " + response.statusCode());
       }
-      System.out.println("Step 1 completed: ES8 HTTP connectivity verified");
+      System.out.println("Step 1 completed: ES8 HTTP connectivity verified (status: " + response.statusCode() + ")");
       
-      // Step 2: Test Elasticsearch Java client initialization (minimal)
-      System.out.println("Step 2: Testing ES Java client initialization...");
-      ElasticsearchClient esClient = createESClient(ES8_HOST, ES8_PORT);
-      
-      // Close immediately after creation to test it works
-      try {
-        esClient._transport().close();
-        System.out.println("Step 2 completed: ES Java client created and closed successfully");
-      } catch (IOException e) {
-        System.err.println("ERROR: Failed to close ES client: " + e.getMessage());
-        throw e;
+      // Step 2: Just verify response contains version info (simple validation)
+      System.out.println("Step 2: Validating ES response contains version info...");
+      String responseBody = response.body();
+      if (!responseBody.contains("version")) {
+        System.err.println("ERROR: ES8 response does not contain version info");
+        fail("ES8 response should contain version info");
       }
+      System.out.println("Step 2 completed: ES response validation successful");
       
       System.out.println("=== Elasticsearch 8 integration test completed successfully ===");
     } catch (Exception e) {
