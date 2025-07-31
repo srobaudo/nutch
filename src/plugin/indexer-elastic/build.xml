@@ -149,25 +149,49 @@
     <!-- Create logs directory -->
     <mkdir dir="${build.test}/logs"/>
     
-    <!-- Check ES8 connectivity -->
+    <!-- Check ES8 connectivity with robust error handling -->
     <echo message="Testing connectivity to ES8 at localhost:${es8.port}"/>
     <get src="http://localhost:${es8.port}/_cluster/health" 
          dest="${build.test}/es8-health.json" 
          ignoreerrors="false" 
-         verbose="true"/>
-    <loadfile property="es8.health" srcFile="${build.test}/es8-health.json"/>
-    <echo message="ES8 Health: ${es8.health}"/>
+         verbose="false"
+         maxsize="10240"/>
+    <condition property="es8.health.available">
+      <and>
+        <available file="${build.test}/es8-health.json"/>
+        <length file="${build.test}/es8-health.json" when="greater" length="0"/>
+      </and>
+    </condition>
+    <antcall target="show-es8-health"/>
     
-    <!-- Check ES9 connectivity -->
+    <!-- Check ES9 connectivity with robust error handling -->
     <echo message="Testing connectivity to ES9 at localhost:${es9.port}"/>
     <get src="http://localhost:${es9.port}/_cluster/health" 
          dest="${build.test}/es9-health.json" 
          ignoreerrors="false" 
-         verbose="true"/>
-    <loadfile property="es9.health" srcFile="${build.test}/es9-health.json"/>
-    <echo message="ES9 Health: ${es9.health}"/>
+         verbose="false"
+         maxsize="10240"/>
+    <condition property="es9.health.available">
+      <and>
+        <available file="${build.test}/es9-health.json"/>
+        <length file="${build.test}/es9-health.json" when="greater" length="0"/>
+      </and>
+    </condition>
+    <antcall target="show-es9-health"/>
     
     <echo message="Pre-test connectivity check completed successfully"/>
+  </target>
+
+  <!-- Separate target to show ES8 health with error handling -->
+  <target name="show-es8-health" if="es8.health.available">
+    <loadfile property="es8.health" srcFile="${build.test}/es8-health.json"/>
+    <echo message="ES8 Health: ${es8.health}"/>
+  </target>
+
+  <!-- Separate target to show ES9 health with error handling -->
+  <target name="show-es9-health" if="es9.health.available">
+    <loadfile property="es9.health" srcFile="${build.test}/es9-health.json"/>
+    <echo message="ES9 Health: ${es9.health}"/>
   </target>
 
   <target name="integration-test" depends="compile-test, integration-test-pre-check" 
@@ -179,7 +203,7 @@
     <echo message="Testing environment: ${env.description}"/>
     
     <junit showoutput="yes" printsummary="yes" haltonfailure="no" fork="yes" maxmemory="256m"
-           timeout="180000" errorProperty="tests.failed" failureProperty="tests.failed">
+           timeout="60000" errorProperty="tests.failed" failureProperty="tests.failed">
       <sysproperty key="test.data" value="${build.test}/data"/>
       <sysproperty key="test.input" value="${root}/data"/>
       <sysproperty key="javax.xml.parsers.DocumentBuilderFactory" value="com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl"/>
@@ -215,7 +239,7 @@
     <echo message="Testing environment: ${env.description}"/>
     
     <junit showoutput="yes" printsummary="yes" haltonfailure="no" fork="yes" maxmemory="256m"
-           timeout="180000" errorProperty="tests.failed" failureProperty="tests.failed">
+           timeout="60000" errorProperty="tests.failed" failureProperty="tests.failed">
       <sysproperty key="test.data" value="${build.test}/data"/>
       <sysproperty key="test.input" value="${root}/data"/>
       <sysproperty key="javax.xml.parsers.DocumentBuilderFactory" value="com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl"/>
@@ -251,7 +275,7 @@
     <echo message="Testing environment: ${env.description}"/>
     
     <junit showoutput="yes" printsummary="yes" haltonfailure="no" fork="yes" maxmemory="256m"
-           timeout="120000" errorProperty="tests.failed" failureProperty="tests.failed">
+           timeout="30000" errorProperty="tests.failed" failureProperty="tests.failed">
       <!-- Fix log4j2 infinite loop issue -->
       <sysproperty key="nutch.log.dir" value="${build.test}/logs"/>
       <sysproperty key="nutch.log.file" value="connectivity-test.log"/>
