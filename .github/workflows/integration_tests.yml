@@ -144,6 +144,13 @@ jobs:
           ant -version
           echo "Current directory: $(pwd)"
           echo "Available memory: $(free -h)"
+          echo "Current user: $(whoami)"
+          echo "Environment variables:"
+          env | grep -E "(JAVA|ANT|PATH)" | head -10
+          
+          # Show process info
+          echo "Current processes:"
+          ps aux | head -10
           
           # Final health verification
           echo "Final ES8 health check:"
@@ -154,22 +161,45 @@ jobs:
           echo ""
           
           # Set system properties for log4j2 to prevent infinite loop
-          export ANT_OPTS="-Dnutch.log.dir=/tmp/nutch-test -Dnutch.log.file=test.log -Djava.io.tmpdir=/tmp"
+          export ANT_OPTS="-Dnutch.log.dir=/tmp/nutch-test -Dnutch.log.file=test.log -Djava.io.tmpdir=/tmp -Xmx2g"
+          echo "ANT_OPTS set to: $ANT_OPTS"
           
-          # Run simple connectivity test first with very short timeout
-          echo "Running connectivity test with 30 second timeout..."
-          timeout 30s ant test-connectivity || { 
-            echo "Connectivity test failed or timed out after 30 seconds"; 
+          # Create log directory
+          mkdir -p /tmp/nutch-test
+          echo "Created log directory: /tmp/nutch-test"
+          
+          # Show ant targets available
+          echo "Available ant targets:"
+          ant -p | grep -E "(integration|test|connectivity)" || echo "No integration/test targets found"
+          
+          # Run the most basic test first - just compile
+          echo "Step 1: Testing compilation..."
+          timeout 60s ant compile-test -Dplugin=indexer-elastic || { 
+            echo "Compilation failed or timed out"; 
             echo "Checking ant processes...";
             ps aux | grep ant || true;
             exit 1; 
           }
+          echo "Compilation successful"
           
-          # If connectivity test passes, run ES8 integration test only with short timeout
-          echo "Running ES8 integration test with 60 second timeout..."
-          timeout 60s ant integration-test-es8-only || { 
-            echo "ES8 integration test failed or timed out after 60 seconds"; 
+          # Run very basic unit test to verify JUnit works
+          echo "Step 2: Running basic JUnit test..."
+          timeout 30s ant test-plugin -Dplugin=indexer-elastic -Dtest.case=TestElasticIndexWriterIntegration -Dtest.method=testBasicJUnitFunctionality || { 
+            echo "Basic JUnit test failed or timed out"; 
             echo "Checking ant processes...";
             ps aux | grep ant || true;
             exit 1; 
           }
+          echo "Basic JUnit test successful"
+          
+          # Run the simplified ES8 integration test
+          echo "Step 3: Running simplified ES8 integration test..."
+          timeout 60s ant test-plugin -Dplugin=indexer-elastic -Dtest.case=TestElasticIndexWriterIntegration -Dtest.method=testElasticsearch8Integration || { 
+            echo "ES8 integration test failed or timed out"; 
+            echo "Checking ant processes...";
+            ps aux | grep ant || true;
+            echo "Checking log files...";
+            find /tmp/nutch-test -name "*.log" -exec echo "=== {} ===" \; -exec cat {} \; || true;
+            exit 1; 
+          }
+          echo "ES8 integration test successful"

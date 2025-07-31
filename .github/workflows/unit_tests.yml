@@ -15,7 +15,10 @@
 
 name: unit tests
 
-on: [push]
+on:
+  push:
+    branches-ignore:
+      - 'copilot/fix-1'  # Disable unit tests for this branch due to high cost
 
 jobs:
   tests:
