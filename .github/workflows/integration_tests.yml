@@ -151,15 +151,16 @@ jobs:
           curl -s http://localhost:9201/_cluster/health | jq '.' || curl -s http://localhost:9201/_cluster/health
           echo ""
           
-          # Run simple connectivity validation (bypasses hanging Ant build system)
-          echo "Running Elasticsearch connectivity validation..."
-          timeout 60s ./validate-es-connectivity.sh || {
-            echo "Connectivity validation failed or timed out"
+          # Run comprehensive integration tests
+          echo "Running comprehensive Elasticsearch integration tests..."
+          export ANT_OPTS="-Dlog4j2.configurationFile=/dev/null -Dnutch.log.dir=/tmp/nutch-logs -Djava.io.tmpdir=/tmp"
+          mkdir -p /tmp/nutch-logs
+          
+          timeout 480s ant integration-test-elastic || {
+            echo "Integration tests failed or timed out after 8 minutes"
+            echo "Checking for any hanging processes..."
+            ps aux | grep -E "(java|ant)" | grep -v grep || true
             exit 1
           }
           
-          echo "All connectivity tests completed successfully!"
-          echo ""
-          echo "Note: Using simplified connectivity tests due to Ant build system hanging issues."
-          echo "The tests validate that the Elasticsearch 8.x and 9.x services are accessible"
-          echo "and ready for the indexer-elastic plugin to use."
+          echo "All integration tests completed successfully!"

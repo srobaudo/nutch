@@ -288,57 +288,55 @@ public class TestElasticIndexWriterIntegration {
     }
   }
 
-  // Temporarily disable complex tests to isolate issues
-  
   /**
-   * Test document indexing and retrieval with ES 8 - DISABLED for troubleshooting
+   * Test document indexing and retrieval with ES 8
    */
-  //@Test
+  @Test
   public void testDocumentIndexingES8() throws Exception {
     setupForES8();
     testDocumentIndexingAndRetrieval();
   }
 
   /**
-   * Test document indexing and retrieval with ES 9 - DISABLED for troubleshooting  
+   * Test document indexing and retrieval with ES 9
    */
-  //@Test
+  @Test
   public void testDocumentIndexingES9() throws Exception {
     setupForES9();
     testDocumentIndexingAndRetrieval();
   }
 
   /**
-   * Test bulk operations with ES 8 - DISABLED for troubleshooting
+   * Test bulk operations with ES 8
    */
-  //@Test
+  @Test
   public void testBulkOperationsES8() throws Exception {
     setupForES8();
     testBulkOperations();
   }
 
   /**
-   * Test bulk operations with ES 9 - DISABLED for troubleshooting
+   * Test bulk operations with ES 9
    */
-  //@Test
+  @Test
   public void testBulkOperationsES9() throws Exception {
     setupForES9();
     testBulkOperations();
   }
 
   /**
-   * Test error handling with ES 8 - DISABLED for troubleshooting
+   * Test error handling with ES 8
    */
-  //@Test
+  @Test
   public void testErrorHandlingES8() throws Exception {
     setupForES8();
     testErrorHandling();
   }
 
   /**
-   * Test error handling with ES 9 - DISABLED for troubleshooting
+   * Test error handling with ES 9
    */
-  //@Test
+  @Test
   public void testErrorHandlingES9() throws Exception {
     setupForES9();
     testErrorHandling();
