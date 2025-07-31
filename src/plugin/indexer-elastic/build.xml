@@ -154,8 +154,7 @@
     <get src="http://localhost:${es8.port}/_cluster/health" 
          dest="${build.test}/es8-health.json" 
          ignoreerrors="false" 
-         verbose="false"
-         maxsize="10240"/>
+         verbose="false"/>
     <condition property="es8.health.available">
       <and>
         <available file="${build.test}/es8-health.json"/>
@@ -169,8 +168,7 @@
     <get src="http://localhost:${es9.port}/_cluster/health" 
          dest="${build.test}/es9-health.json" 
          ignoreerrors="false" 
-         verbose="false"
-         maxsize="10240"/>
+         verbose="false"/>
     <condition property="es9.health.available">
       <and>
         <available file="${build.test}/es9-health.json"/>
