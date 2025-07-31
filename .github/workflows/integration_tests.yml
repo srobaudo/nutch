@@ -151,84 +151,10 @@ jobs:
           curl -s http://localhost:9201/_cluster/health | jq '.' || curl -s http://localhost:9201/_cluster/health
           echo ""
           
-          # Run simple shell-based connectivity test to avoid Ant hanging issues
-          echo "Running simple connectivity test..."
-          cat > /tmp/simple-es-test.sh << 'EOF'
-          #!/bin/bash
-          set -e
-          echo "=== SIMPLE ES CONNECTIVITY TEST ==="
-          echo "Test time: $(date)"
-          
-          # Test ES8
-          echo "Testing ES8 at localhost:9200..."
-          curl -f -s --connect-timeout 5 --max-time 10 "http://localhost:9200/" > /tmp/es8-root.json
-          if [ $? -eq 0 ]; then
-              echo "✓ ES8 root endpoint: OK"
-              if grep -q "version" /tmp/es8-root.json; then
-                  echo "✓ ES8 version info found"
-              else
-                  echo "✗ ES8 version info missing"
-                  exit 1
-              fi
-          else
-              echo "✗ ES8 root endpoint failed"
-              exit 1
-          fi
-          
-          curl -f -s --connect-timeout 5 --max-time 10 "http://localhost:9200/_cluster/health" > /tmp/es8-health.json
-          if [ $? -eq 0 ]; then
-              echo "✓ ES8 cluster health: OK"
-              if grep -q "cluster_name" /tmp/es8-health.json; then
-                  echo "✓ ES8 cluster health info found"
-              else
-                  echo "✗ ES8 cluster health info missing"
-                  exit 1
-              fi
-          else
-              echo "✗ ES8 cluster health failed"
-              exit 1
-          fi
-          
-          echo ""
-          
-          # Test ES9
-          echo "Testing ES9 at localhost:9201..."
-          curl -f -s --connect-timeout 5 --max-time 10 "http://localhost:9201/" > /tmp/es9-root.json
-          if [ $? -eq 0 ]; then
-              echo "✓ ES9 root endpoint: OK"
-              if grep -q "version" /tmp/es9-root.json; then
-                  echo "✓ ES9 version info found"
-              else
-                  echo "✗ ES9 version info missing"
-                  exit 1
-              fi
-          else
-              echo "✗ ES9 root endpoint failed"
-              exit 1
-          fi
-          
-          curl -f -s --connect-timeout 5 --max-time 10 "http://localhost:9201/_cluster/health" > /tmp/es9-health.json
-          if [ $? -eq 0 ]; then
-              echo "✓ ES9 cluster health: OK"
-              if grep -q "cluster_name" /tmp/es9-health.json; then
-                  echo "✓ ES9 cluster health info found"
-              else
-                  echo "✗ ES9 cluster health info missing"
-                  exit 1
-              fi
-          else
-              echo "✗ ES9 cluster health failed"
-              exit 1
-          fi
-          
-          echo ""
-          echo "=== ALL CONNECTIVITY TESTS PASSED ==="
-          echo "Test completion: $(date)"
-          EOF
-          
-          chmod +x /tmp/simple-es-test.sh
-          timeout 60s /tmp/simple-es-test.sh || {
-            echo "Simple connectivity test failed or timed out"
+          # Run comprehensive integration tests with Ant
+          echo "Running comprehensive integration tests..."
+          timeout 480s ant integration-test-elastic || {
+            echo "Integration tests failed or timed out"
             exit 1
           }
           

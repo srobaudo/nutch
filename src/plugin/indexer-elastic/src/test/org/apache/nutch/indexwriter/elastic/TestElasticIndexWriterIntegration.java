@@ -78,28 +78,45 @@ public class TestElasticIndexWriterIntegration {
 
   @Before  
   public void setUp() throws Exception {
-    System.out.println("=== MINIMAL SETUP METHOD ENTRY ===");
+    System.out.println("=== SETUP METHOD ENTRY ===");
     System.out.println("Setup time: " + new Date());
-    System.out.println("Thread: " + Thread.currentThread().getName());
     
-    // Skip all complex initialization to avoid hanging
-    // Just set basic variables for test reference
+    // Initialize Nutch configuration
+    conf = NutchConfiguration.create();
+    
+    // Set default ES version and connection details
     currentESVersion = "8";
     currentHost = ES8_HOST;
     currentPort = ES8_PORT;
     
-    System.out.println("=== MINIMAL SETUP COMPLETED ===");
+    System.out.println("=== SETUP COMPLETED ===");
   }
 
   @After
   public void tearDown() throws Exception {
-    System.out.println("=== MINIMAL TEARDOWN ===");
+    System.out.println("=== TEARDOWN ===");
     System.out.println("Teardown time: " + new Date());
     
-    // Skip all cleanup to avoid hanging issues
-    System.out.println("Skipping all cleanup operations to prevent hanging");
+    // Clean up IndexWriter
+    if (indexWriter != null) {
+      try {
+        indexWriter.close();
+      } catch (Exception e) {
+        System.out.println("Error closing IndexWriter: " + e.getMessage());
+      }
+      indexWriter = null;
+    }
     
-    System.out.println("=== MINIMAL TEARDOWN COMPLETED ===");
+    // Clean up test index if possible
+    if (currentHost != null && currentPort > 0) {
+      try {
+        cleanupTestIndex(currentHost, currentPort);
+      } catch (Exception e) {
+        System.out.println("Error during cleanup: " + e.getMessage());
+      }
+    }
+    
+    System.out.println("=== TEARDOWN COMPLETED ===");
   }
 
   /**
@@ -290,9 +307,9 @@ public class TestElasticIndexWriterIntegration {
   }
 
   /**
-   * Test Elasticsearch 9.x integration - DISABLED for debugging
+   * Test Elasticsearch 9.x integration
    */
-  // @Test
+  @Test
   public void testElasticsearch9Integration() throws Exception {
     LOG.info("=== Starting Elasticsearch 9 integration test ===");
     setupForES9();
@@ -301,54 +318,54 @@ public class TestElasticIndexWriterIntegration {
   }
 
   /**
-   * Test document indexing and retrieval with ES 8 - DISABLED for debugging
+   * Test document indexing and retrieval with ES 8
    */
-  // @Test
+  @Test
   public void testDocumentIndexingES8() throws Exception {
     setupForES8();
     testDocumentIndexingAndRetrieval();
   }
 
   /**
-   * Test document indexing and retrieval with ES 9 - DISABLED for debugging
+   * Test document indexing and retrieval with ES 9
    */
-  // @Test
+  @Test
   public void testDocumentIndexingES9() throws Exception {
     setupForES9();
     testDocumentIndexingAndRetrieval();
   }
 
   /**
-   * Test bulk operations with ES 8 - DISABLED for debugging
+   * Test bulk operations with ES 8
    */
-  // @Test
+  @Test
   public void testBulkOperationsES8() throws Exception {
     setupForES8();
     testBulkOperations();
   }
 
   /**
-   * Test bulk operations with ES 9 - DISABLED for debugging
+   * Test bulk operations with ES 9
    */
-  // @Test
+  @Test
   public void testBulkOperationsES9() throws Exception {
     setupForES9();
     testBulkOperations();
   }
 
   /**
-   * Test error handling with ES 8 - DISABLED for debugging
+   * Test error handling with ES 8
    */
-  // @Test
+  @Test
   public void testErrorHandlingES8() throws Exception {
     setupForES8();
     testErrorHandling();
   }
 
   /**
-   * Test error handling with ES 9 - DISABLED for debugging
+   * Test error handling with ES 9
    */
-  // @Test
+  @Test
   public void testErrorHandlingES9() throws Exception {
     setupForES9();
     testErrorHandling();
