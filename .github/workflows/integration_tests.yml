@@ -172,9 +172,9 @@ jobs:
           echo "Available ant targets:"
           ant -p | grep -E "(integration|test|connectivity)" || echo "No integration/test targets found"
           
-          # Run the most basic test first - just compile
+          # Run the most basic test first - just compile  
           echo "Step 1: Testing compilation..."
-          timeout 60s ant compile-test -Dplugin=indexer-elastic || { 
+          timeout 60s ant compile-core-test || { 
             echo "Compilation failed or timed out"; 
             echo "Checking ant processes...";
             ps aux | grep ant || true;
