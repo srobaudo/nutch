@@ -182,14 +182,12 @@
 
   <!-- Separate target to show ES8 health with error handling -->
   <target name="show-es8-health" if="es8.health.available">
-    <loadfile property="es8.health" srcFile="${build.test}/es8-health.json"/>
-    <echo message="ES8 Health: ${es8.health}"/>
+    <echo message="ES8 Health: Successfully retrieved cluster health information"/>
   </target>
 
   <!-- Separate target to show ES9 health with error handling -->
   <target name="show-es9-health" if="es9.health.available">
-    <loadfile property="es9.health" srcFile="${build.test}/es9-health.json"/>
-    <echo message="ES9 Health: ${es9.health}"/>
+    <echo message="ES9 Health: Successfully retrieved cluster health information"/>
   </target>
 
   <target name="integration-test" depends="compile-test, integration-test-pre-check" 
