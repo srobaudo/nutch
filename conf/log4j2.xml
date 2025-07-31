@@ -19,8 +19,8 @@
     <!-- default values that can be overridden by system properties:
            Note: the script bin/nutch sets these properties from the environment variables
                      NUTCH_LOG_DIR and NUTCH_LOGFILE -->
-    <Property name="nutch.log.dir">${sys:hadoop.log.dir:-./logs}</Property>
-    <Property name="nutch.log.file">${sys:hadoop.log.file:-hadoop.log}</Property>
+    <Property name="nutch.log.dir">${sys:nutch.log.dir:-${sys:hadoop.log.dir:-./logs}}</Property>
+    <Property name="nutch.log.file">${sys:nutch.log.file:-${sys:hadoop.log.file:-hadoop.log}}</Property>
   </Properties>
   <Appenders>
     <RollingFile name="RollingFile" fileName="${nutch.log.dir}/${nutch.log.file}"

@@ -184,8 +184,8 @@
       <sysproperty key="test.input" value="${root}/data"/>
       <sysproperty key="javax.xml.parsers.DocumentBuilderFactory" value="com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl"/>
       <!-- Fix log4j2 infinite loop issue -->
-      <sysproperty key="hadoop.log.dir" value="${build.test}/logs"/>
-      <sysproperty key="hadoop.log.file" value="integration-test.log"/>
+      <sysproperty key="nutch.log.dir" value="${build.test}/logs"/>
+      <sysproperty key="nutch.log.file" value="integration-test.log"/>
       <!-- Set Elasticsearch ports for tests --> 
       <sysproperty key="elasticsearch8.port" value="${es8.port}"/>
       <sysproperty key="elasticsearch9.port" value="${es9.port}"/>
@@ -220,8 +220,8 @@
       <sysproperty key="test.input" value="${root}/data"/>
       <sysproperty key="javax.xml.parsers.DocumentBuilderFactory" value="com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl"/>
       <!-- Fix log4j2 infinite loop issue -->
-      <sysproperty key="hadoop.log.dir" value="${build.test}/logs"/>
-      <sysproperty key="hadoop.log.file" value="es8-integration-test.log"/>
+      <sysproperty key="nutch.log.dir" value="${build.test}/logs"/>
+      <sysproperty key="nutch.log.file" value="es8-integration-test.log"/>
       <sysproperty key="elasticsearch8.port" value="${es8.port}"/>
       <sysproperty key="elasticsearch9.port" value="${es9.port}"/>
       <classpath refid="test.classpath"/>
@@ -253,8 +253,8 @@
     <junit showoutput="yes" printsummary="yes" haltonfailure="no" fork="yes" maxmemory="256m"
            timeout="120000" errorProperty="tests.failed" failureProperty="tests.failed">
       <!-- Fix log4j2 infinite loop issue -->
-      <sysproperty key="hadoop.log.dir" value="${build.test}/logs"/>
-      <sysproperty key="hadoop.log.file" value="connectivity-test.log"/>
+      <sysproperty key="nutch.log.dir" value="${build.test}/logs"/>
+      <sysproperty key="nutch.log.file" value="connectivity-test.log"/>
       <sysproperty key="elasticsearch8.port" value="${es8.port}"/>
       <sysproperty key="elasticsearch9.port" value="${es9.port}"/>
       <classpath refid="test.classpath"/>

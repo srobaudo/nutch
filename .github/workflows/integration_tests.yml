@@ -154,7 +154,7 @@ jobs:
           echo ""
           
           # Set system properties for log4j2 to prevent infinite loop
-          export ANT_OPTS="-Dhadoop.log.dir=/tmp/nutch-test -Dhadoop.log.file=test.log -Djava.io.tmpdir=/tmp"
+          export ANT_OPTS="-Dnutch.log.dir=/tmp/nutch-test -Dnutch.log.file=test.log -Djava.io.tmpdir=/tmp"
           
           # Run simple connectivity test first with very short timeout
           echo "Running connectivity test with 30 second timeout..."
