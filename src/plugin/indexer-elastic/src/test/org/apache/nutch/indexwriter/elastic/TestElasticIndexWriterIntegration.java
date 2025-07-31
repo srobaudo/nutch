@@ -509,16 +509,17 @@ public class TestElasticIndexWriterIntegration {
       // Use the new bulk API
       client.bulk(b -> {
         for (int i = 0; i < 3; i++) {
+          final int docIndex = i; // Create effectively final variable for lambda
           Map<String, Object> document = new HashMap<>();
-          document.put("id", "bulk-direct-" + version + "-" + i);
-          document.put("title", "Bulk Direct Document " + i + " for ES " + version);
-          document.put("content", "Bulk content " + i);
+          document.put("id", "bulk-direct-" + version + "-" + docIndex);
+          document.put("title", "Bulk Direct Document " + docIndex + " for ES " + version);
+          document.put("content", "Bulk content " + docIndex);
           document.put("timestamp", new Date().toString());
           
           b.operations(op -> op
               .index(idx -> idx
                   .index(TEST_INDEX)
-                  .id("bulk-direct-" + version + "-" + i)
+                  .id("bulk-direct-" + version + "-" + docIndex)
                   .document(document)
               )
           );
