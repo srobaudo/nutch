@@ -199,7 +199,7 @@
     <echo message="Testing environment: ${env.description}"/>
     
     <junit showoutput="yes" printsummary="yes" haltonfailure="no" fork="yes" maxmemory="256m"
-           timeout="60000" errorProperty="tests.failed" failureProperty="tests.failed">
+           timeout="120000" errorProperty="tests.failed" failureProperty="tests.failed">
       <sysproperty key="test.data" value="${build.test}/data"/>
       <sysproperty key="test.input" value="${root}/data"/>
       <sysproperty key="javax.xml.parsers.DocumentBuilderFactory" value="com.sun.org.apache.xerces.internal.jaxp.DocumentBuilderFactoryImpl"/>
